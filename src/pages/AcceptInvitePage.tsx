@@ -87,7 +87,6 @@ export const AcceptInvitePage: React.FC = () => {
 
         setInvitation(invite as InvitationLookupResult);
       } catch (err: any) {
-        console.error('Error fetching invitation via RPC:', err);
         setErrorMsg(err.message || 'Unable to retrieve invitation details.');
       } finally {
         setLoading(false);
@@ -127,7 +126,6 @@ export const AcceptInvitePage: React.FC = () => {
       // Direct to dashboard (skips create-organization onboarding)
       navigate('/');
     } catch (err: any) {
-      console.error('Failed to accept invitation via RPC:', err);
       setAcceptError(
         err.message || 'Failed to accept invitation. Please ensure your email matches the invited address.'
       );

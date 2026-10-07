@@ -27,6 +27,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   createOrganization: (name: string, industry: string, teamSize: string) => Promise<{ error: Error | null; organization?: Organization }>;
+  updateProfile: (fullName: string) => Promise<{ error: Error | null; profile?: Profile | null }>;
+  updateOrganization: (orgId: string, updates: { name: string; industry: string; team_size: string }) => Promise<{ error: Error | null; organization?: Organization | null }>;
   switchOrganization: (orgId: string) => void;
   toggleDemoMode: (enable?: boolean) => void;
   refreshUserData: () => Promise<void>;
@@ -422,6 +424,99 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateProfile = async (fullName: string) => {
+    const trimmed = fullName.trim();
+    if (!trimmed) {
+      return { error: new Error('Full name cannot be empty.'), profile: null };
+    }
+
+    if (isDemoMode) {
+      const updated: Profile = {
+        ...(profile || DEMO_PROFILE),
+        full_name: trimmed,
+      };
+      setProfile(updated);
+      return { error: null, profile: updated };
+    }
+
+    if (!user) {
+      return { error: new Error('User not authenticated.'), profile: null };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ full_name: trimmed })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        if (isRLSError(error)) {
+          reportRLSError('profiles', 'UPDATE', error);
+        }
+        return { error, profile: null };
+      }
+
+      setProfile(data);
+      return { error: null, profile: data };
+    } catch (err: any) {
+      return { error: err, profile: null };
+    }
+  };
+
+  const updateOrganization = async (
+    orgId: string,
+    updates: { name: string; industry: string; team_size: string }
+  ) => {
+    if (!updates.name.trim()) {
+      return { error: new Error('Organization name cannot be empty.'), organization: null };
+    }
+
+    if (isDemoMode) {
+      const updatedOrg: Organization = {
+        ...(currentOrg || DEMO_ORGANIZATION),
+        id: orgId,
+        name: updates.name.trim(),
+        industry: updates.industry.trim(),
+        team_size: updates.team_size.trim(),
+      };
+      setCurrentOrg(updatedOrg);
+      setOrganizations((prev) =>
+        prev.map((o) => (o.id === orgId ? updatedOrg : o))
+      );
+      return { error: null, organization: updatedOrg };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .update({
+          name: updates.name.trim(),
+          industry: updates.industry.trim(),
+          team_size: updates.team_size.trim(),
+        })
+        .eq('id', orgId)
+        .select()
+        .single();
+
+      if (error) {
+        if (isRLSError(error)) {
+          reportRLSError('organizations', 'UPDATE', error);
+        }
+        return { error, organization: null };
+      }
+
+      setCurrentOrg(data);
+      setOrganizations((prev) =>
+        prev.map((o) => (o.id === orgId ? data : o))
+      );
+      return { error: null, organization: data };
+    } catch (err: any) {
+      return { error: err, organization: null };
+    }
+  };
+
   const switchOrganization = (orgId: string) => {
     const selected = organizations.find((o) => o.id === orgId);
     if (selected) {
@@ -464,6 +559,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signOut,
         resetPassword,
         createOrganization,
+        updateProfile,
+        updateOrganization,
         switchOrganization,
         toggleDemoMode,
         refreshUserData,

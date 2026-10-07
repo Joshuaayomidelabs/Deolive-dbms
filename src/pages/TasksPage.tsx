@@ -21,9 +21,11 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
-import { Task, TaskStatus, TaskPriority, Project, Profile, OrganizationMember } from '../types/database';
+import { Task, TaskStatus, TaskPriority, Project, Profile } from '../types/database';
 import { DEMO_PROJECTS, DEMO_TASKS, DEMO_TEAM_MEMBERS } from '../lib/mockData';
+import { ConfirmModal } from '../components/modals/ConfirmModal';
 
 const STATUS_COLUMNS: { id: TaskStatus; title: string; countColor: string }[] = [
   { id: 'todo', title: 'To Do', countColor: 'text-stone-500' },
@@ -42,6 +44,7 @@ export const TasksPage: React.FC = () => {
   const initialProjectId = searchParams.get('project') || 'all';
 
   const { currentOrg, user, isDemoMode, reportRLSError } = useAuth();
+  const toast = useToast();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -54,6 +57,7 @@ export const TasksPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileColumnTab, setMobileColumnTab] = useState<TaskStatus>('todo');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,6 +71,10 @@ export const TasksPage: React.FC = () => {
   const [formDueDate, setFormDueDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Safety Confirm Modal State
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchWorkspaceData = async () => {
     if (!currentOrg) return;
@@ -142,8 +150,8 @@ export const TasksPage: React.FC = () => {
           setTeamMembers(membersList);
         }
       }
-    } catch (err) {
-      console.error('Error fetching tasks data:', err);
+    } catch (err: any) {
+      toast.error(err.message || 'Error fetching tasks data.');
     } finally {
       setLoading(false);
     }
@@ -207,6 +215,7 @@ export const TasksPage: React.FC = () => {
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t))
       );
+      toast.success(`Task moved to ${newStatus.replace('_', ' ')}.`);
       return;
     }
 
@@ -220,34 +229,47 @@ export const TasksPage: React.FC = () => {
 
       if (error) {
         reportRLSError('tasks', 'UPDATE', error);
+        toast.error(error.message || 'Failed to update task status.');
       } else {
         setTasks((prev) =>
           prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t))
         );
+        toast.success(`Task moved to ${newStatus.replace('_', ' ')}.`);
       }
-    } catch (err) {
-      console.error('Update status error:', err);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update task status.');
     }
   };
 
-  const handleDeleteTask = async (taskId: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
+  const handleConfirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+    setIsDeleting(true);
+
+    const targetId = taskToDelete.id;
+    const targetTitle = taskToDelete.title;
 
     if (isDemoMode) {
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      setTasks((prev) => prev.filter((t) => t.id !== targetId));
+      toast.success(`Task "${targetTitle}" deleted.`);
+      setIsDeleting(false);
+      setTaskToDelete(null);
       return;
     }
 
     try {
-      const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+      const { error } = await supabase.from('tasks').delete().eq('id', targetId);
       if (error) {
         reportRLSError('tasks', 'DELETE', error);
+        toast.error(error.message || 'Failed to delete task.');
       } else {
-        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+        setTasks((prev) => prev.filter((t) => t.id !== targetId));
+        toast.success(`Task "${targetTitle}" deleted successfully.`);
       }
-    } catch (err) {
-      console.error('Delete task error:', err);
+    } catch (err: any) {
+      toast.error(err.message || 'An error occurred while deleting task.');
+    } finally {
+      setIsDeleting(false);
+      setTaskToDelete(null);
     }
   };
 
@@ -287,6 +309,7 @@ export const TasksPage: React.FC = () => {
             t.id === editingTask.id ? { ...t, ...taskPayload } : t
           )
         );
+        toast.success(`Task "${formTitle.trim()}" updated.`);
       } else {
         const newTask: Task = {
           ...taskPayload,
@@ -295,6 +318,7 @@ export const TasksPage: React.FC = () => {
           created_at: new Date().toISOString(),
         };
         setTasks((prev) => [newTask, ...prev]);
+        toast.success(`Task "${formTitle.trim()}" created.`);
       }
       setSubmitting(false);
       setIsModalOpen(false);
@@ -317,6 +341,7 @@ export const TasksPage: React.FC = () => {
           setTasks((prev) =>
             prev.map((t) => (t.id === editingTask.id ? data : t))
           );
+          toast.success(`Task "${formTitle.trim()}" updated successfully.`);
           setIsModalOpen(false);
         }
       } else {
@@ -334,6 +359,7 @@ export const TasksPage: React.FC = () => {
           setFormError(error.message);
         } else {
           setTasks((prev) => [data, ...prev]);
+          toast.success(`Task "${formTitle.trim()}" created successfully.`);
           setIsModalOpen(false);
         }
       }
@@ -365,18 +391,18 @@ export const TasksPage: React.FC = () => {
             Task Orchestration
           </h1>
           <p className="text-xs text-stone-500 mt-0.5">
-            Plan and monitor sprint task execution for {currentOrg?.name}.
+            Plan, monitor sprint execution, and track task delivery for {currentOrg?.name}.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           {/* View Toggle */}
           <div className="flex items-center gap-1 p-0.5 bg-stone-200/70 rounded-lg">
             <button
               onClick={() => setViewMode('kanban')}
-              className={`p-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`p-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                 viewMode === 'kanban'
-                  ? 'bg-white text-stone-900 shadow-2xs'
+                  ? 'bg-white text-stone-900 shadow-2xs font-semibold'
                   : 'text-stone-500 hover:text-stone-900'
               }`}
               title="Kanban Board View"
@@ -385,9 +411,9 @@ export const TasksPage: React.FC = () => {
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`p-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                 viewMode === 'table'
-                  ? 'bg-white text-stone-900 shadow-2xs'
+                  ? 'bg-white text-stone-900 shadow-2xs font-semibold'
                   : 'text-stone-500 hover:text-stone-900'
               }`}
               title="Table View"
@@ -407,15 +433,15 @@ export const TasksPage: React.FC = () => {
       </div>
 
       {/* Filter and Project Selection Controls */}
-      <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+      <div className="p-3 bg-white rounded-xl border border-stone-200 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
           {/* Project selector */}
           <div className="flex items-center gap-2">
-            <span className="text-stone-500 font-medium">Project:</span>
+            <span className="text-stone-500 font-medium shrink-0">Project:</span>
             <select
               value={selectedProjectId}
               onChange={(e) => handleProjectSelect(e.target.value)}
-              className="px-2.5 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-stone-800 font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
+              className="w-full sm:w-auto px-2.5 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-stone-800 font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary cursor-pointer text-xs"
             >
               <option value="all">All Projects ({projects.length})</option>
               {projects.map((p) => (
@@ -428,11 +454,11 @@ export const TasksPage: React.FC = () => {
 
           {/* Priority filter */}
           <div className="flex items-center gap-2">
-            <span className="text-stone-500 font-medium">Priority:</span>
+            <span className="text-stone-500 font-medium shrink-0">Priority:</span>
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-2.5 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-stone-800 font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary capitalize"
+              className="w-full sm:w-auto px-2.5 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-stone-800 font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary capitalize cursor-pointer text-xs"
             >
               <option value="all">All Priorities</option>
               <option value="high">High Priority</option>
@@ -455,6 +481,30 @@ export const TasksPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Kanban Tab Selector (visible on small screens) */}
+      {viewMode === 'kanban' && (
+        <div className="md:hidden flex rounded-lg bg-stone-200/80 p-1 text-xs font-medium">
+          {STATUS_COLUMNS.map((col) => {
+            const count = filteredTasks.filter((t) => t.status === col.id).length;
+            const active = mobileColumnTab === col.id;
+            return (
+              <button
+                key={col.id}
+                onClick={() => setMobileColumnTab(col.id)}
+                className={`flex-1 py-1.5 text-center rounded-md transition-colors ${
+                  active
+                    ? 'bg-white text-stone-900 font-bold shadow-2xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>{col.title}</span>{' '}
+                <span className="text-[10px] font-mono text-stone-400">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Main Task View */}
       {loading ? (
         <div className="h-64 flex flex-col items-center justify-center text-stone-400 gap-2">
@@ -474,11 +524,14 @@ export const TasksPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {STATUS_COLUMNS.map((col) => {
             const columnTasks = filteredTasks.filter((t) => t.status === col.id);
+            const isHiddenOnMobile = mobileColumnTab !== col.id;
 
             return (
               <div
                 key={col.id}
-                className="bg-stone-50/70 border border-stone-200 rounded-xl p-4 flex flex-col min-h-[500px]"
+                className={`bg-stone-50/70 border border-stone-200 rounded-xl p-4 flex flex-col min-h-[460px] ${
+                  isHiddenOnMobile ? 'hidden md:flex' : 'flex'
+                }`}
               >
                 {/* Column Header */}
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-stone-200">
@@ -494,7 +547,7 @@ export const TasksPage: React.FC = () => {
                   <button
                     onClick={() => handleOpenCreateModal(col.id)}
                     title={`Add task to ${col.title}`}
-                    className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 rounded transition-colors"
+                    className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 rounded transition-colors cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -568,13 +621,13 @@ export const TasksPage: React.FC = () => {
                               </span>
                             )}
 
-                            {/* Quick status transition dropdown/buttons */}
+                            {/* Quick status transition buttons */}
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                               {col.id !== 'todo' && (
                                 <button
                                   onClick={(e) => handleUpdateStatus(task, 'todo', e)}
                                   title="Move to To Do"
-                                  className="p-1 hover:bg-stone-100 rounded text-stone-400 hover:text-stone-700 text-[10px]"
+                                  className="p-1 hover:bg-stone-100 rounded text-stone-400 hover:text-stone-700 text-[10px] cursor-pointer"
                                 >
                                   &larr;
                                 </button>
@@ -583,7 +636,7 @@ export const TasksPage: React.FC = () => {
                                 <button
                                   onClick={(e) => handleUpdateStatus(task, 'in_progress', e)}
                                   title="Move to In Progress"
-                                  className="p-1 hover:bg-stone-100 rounded text-stone-400 hover:text-amber-700 text-[10px]"
+                                  className="p-1 hover:bg-stone-100 rounded text-stone-400 hover:text-amber-700 text-[10px] cursor-pointer"
                                 >
                                   {col.id === 'todo' ? '&rarr;' : '&larr;'}
                                 </button>
@@ -592,15 +645,18 @@ export const TasksPage: React.FC = () => {
                                 <button
                                   onClick={(e) => handleUpdateStatus(task, 'done', e)}
                                   title="Mark Done"
-                                  className="p-1 hover:bg-stone-100 rounded text-stone-400 hover:text-brand-primary-dark text-[10px]"
+                                  className="p-1 hover:bg-stone-100 rounded text-stone-400 hover:text-brand-primary-dark text-[10px] cursor-pointer"
                                 >
                                   &check;
                                 </button>
                               )}
                               <button
-                                onClick={(e) => handleDeleteTask(task.id, e)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTaskToDelete(task);
+                                }}
                                 title="Delete Task"
-                                className="p-1 hover:bg-stone-100 rounded text-stone-400 hover:text-red-600"
+                                className="p-1 hover:bg-stone-100 rounded text-stone-400 hover:text-red-600 cursor-pointer"
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
@@ -616,7 +672,7 @@ export const TasksPage: React.FC = () => {
                       <span>No tasks in {col.title}</span>
                       <button
                         onClick={() => handleOpenCreateModal(col.id)}
-                        className="text-brand-primary-dark hover:underline font-semibold"
+                        className="text-brand-primary-dark hover:underline font-semibold cursor-pointer"
                       >
                         + Add task
                       </button>
@@ -628,10 +684,10 @@ export const TasksPage: React.FC = () => {
           })}
         </div>
       ) : (
-        /* TABLE LIST VIEW (High-density tabular discipline) */
+        /* TABLE LIST VIEW */
         <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse min-w-[620px]">
               <thead>
                 <tr className="border-b border-stone-200 bg-stone-50/70 text-stone-500 font-medium">
                   <th className="py-2.5 px-4">Task Title</th>
@@ -684,13 +740,13 @@ export const TasksPage: React.FC = () => {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => handleOpenEditModal(task)}
-                            className="p-1 text-stone-400 hover:text-stone-700 rounded"
+                            className="p-1 text-stone-400 hover:text-stone-700 rounded cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteTask(task.id)}
-                            className="p-1 text-stone-400 hover:text-red-600 rounded"
+                            onClick={() => setTaskToDelete(task)}
+                            className="p-1 text-stone-400 hover:text-red-600 rounded cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -727,7 +783,7 @@ export const TasksPage: React.FC = () => {
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -764,7 +820,7 @@ export const TasksPage: React.FC = () => {
                   required
                   value={formProjectId}
                   onChange={(e) => setFormProjectId(e.target.value)}
-                  className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors text-xs"
+                  className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors text-xs cursor-pointer"
                 >
                   <option value="" disabled>Select target project</option>
                   {projects.map((p) => (
@@ -796,7 +852,7 @@ export const TasksPage: React.FC = () => {
                   <select
                     value={formStatus}
                     onChange={(e) => setFormStatus(e.target.value as TaskStatus)}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors capitalize text-xs"
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors capitalize text-xs cursor-pointer"
                   >
                     <option value="todo">To Do</option>
                     <option value="in_progress">In Progress</option>
@@ -811,7 +867,7 @@ export const TasksPage: React.FC = () => {
                   <select
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value as TaskPriority)}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors capitalize text-xs"
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors capitalize text-xs cursor-pointer"
                   >
                     {PRIORITIES.map((p) => (
                       <option key={p.value} value={p.value}>
@@ -830,7 +886,7 @@ export const TasksPage: React.FC = () => {
                   <select
                     value={formAssigneeId}
                     onChange={(e) => setFormAssigneeId(e.target.value)}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors text-xs"
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors text-xs cursor-pointer"
                   >
                     <option value="">Unassigned</option>
                     {teamMembers.map((m) => (
@@ -875,6 +931,19 @@ export const TasksPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Safety Confirmation Modal for Deleting Tasks */}
+      <ConfirmModal
+        isOpen={!!taskToDelete}
+        title="Delete Task"
+        message={`Are you sure you want to delete "${taskToDelete?.title}"? This action cannot be undone.`}
+        confirmLabel="Delete Task"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDeleteTask}
+        onCancel={() => setTaskToDelete(null)}
+      />
     </div>
   );
 };

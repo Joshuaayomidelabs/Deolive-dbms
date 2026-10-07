@@ -14,11 +14,14 @@ import {
   X,
   Loader2,
   AlertCircle,
+  Filter,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
 import { Project, ProjectStatus, Task } from '../types/database';
 import { DEMO_PROJECTS, DEMO_TASKS } from '../lib/mockData';
+import { ConfirmModal } from '../components/modals/ConfirmModal';
 
 const STATUS_OPTIONS: { label: string; value: ProjectStatus }[] = [
   { label: 'Planning', value: 'planning' },
@@ -29,13 +32,15 @@ const STATUS_OPTIONS: { label: string; value: ProjectStatus }[] = [
 
 export const ProjectsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentOrg, user, isDemoMode, reportRLSError } = useAuth();
+  const { currentOrg, user, currentMemberRole, isDemoMode, reportRLSError } = useAuth();
+  const toast = useToast();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,6 +53,12 @@ export const ProjectsPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Safety Confirmation Modal state
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const canManageProjects = currentMemberRole === 'owner' || currentMemberRole === 'admin';
+
   const fetchProjects = async () => {
     if (!currentOrg) return;
 
@@ -59,6 +70,7 @@ export const ProjectsPage: React.FC = () => {
     }
 
     setLoading(true);
+    setErrorMessage(null);
     try {
       const { data: projData, error: projErr } = await supabase
         .from('projects')
@@ -68,6 +80,7 @@ export const ProjectsPage: React.FC = () => {
 
       if (projErr) {
         reportRLSError('projects', 'SELECT', projErr);
+        setErrorMessage(projErr.message);
       } else {
         setProjects(projData || []);
       }
@@ -82,8 +95,8 @@ export const ProjectsPage: React.FC = () => {
       } else {
         setTasks(taskData || []);
       }
-    } catch (err) {
-      console.error('Error fetching projects:', err);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to load projects.');
     } finally {
       setLoading(false);
     }
@@ -116,46 +129,64 @@ export const ProjectsPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this project? Associated tasks will be affected.')) {
-      return;
-    }
+  const handleConfirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+
+    setIsDeleting(true);
+    const targetId = projectToDelete.id;
+    const targetName = projectToDelete.name;
 
     if (isDemoMode) {
-      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      setProjects((prev) => prev.filter((p) => p.id !== targetId));
+      toast.success(`Project "${targetName}" deleted.`);
+      setIsDeleting(false);
+      setProjectToDelete(null);
       return;
     }
 
     try {
-      const { error } = await supabase.from('projects').delete().eq('id', projectId);
+      const { error } = await supabase.from('projects').delete().eq('id', targetId);
       if (error) {
         reportRLSError('projects', 'DELETE', error);
+        toast.error(error.message || 'Failed to delete project.');
       } else {
-        setProjects((prev) => prev.filter((p) => p.id !== projectId));
+        setProjects((prev) => prev.filter((p) => p.id !== targetId));
+        toast.success(`Project "${targetName}" deleted successfully.`);
       }
-    } catch (err) {
-      console.error('Delete error:', err);
+    } catch (err: any) {
+      toast.error(err.message || 'An unexpected error occurred while deleting project.');
+    } finally {
+      setIsDeleting(false);
+      setProjectToDelete(null);
     }
   };
 
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim()) {
+    setFormError(null);
+
+    const trimmedName = formName.trim();
+    if (!trimmedName) {
       setFormError('Project name is required.');
       return;
     }
+
+    // Sensible date validation
+    if (formStartDate && formDueDate && formDueDate < formStartDate) {
+      setFormError('Due date cannot be earlier than the project start date.');
+      return;
+    }
+
     if (!currentOrg) {
       setFormError('No active organization selected.');
       return;
     }
 
     setSubmitting(true);
-    setFormError(null);
 
     const projectPayload = {
       organization_id: currentOrg.id,
-      name: formName.trim(),
+      name: trimmedName,
       description: formDescription.trim() || null,
       status: formStatus,
       start_date: formStartDate || null,
@@ -169,6 +200,7 @@ export const ProjectsPage: React.FC = () => {
             p.id === editingProject.id ? { ...p, ...projectPayload } : p
           )
         );
+        toast.success(`Project "${trimmedName}" updated.`);
       } else {
         const newProj: Project = {
           ...projectPayload,
@@ -177,6 +209,7 @@ export const ProjectsPage: React.FC = () => {
           created_at: new Date().toISOString(),
         };
         setProjects((prev) => [newProj, ...prev]);
+        toast.success(`Project "${trimmedName}" created.`);
       }
       setSubmitting(false);
       setIsModalOpen(false);
@@ -199,6 +232,7 @@ export const ProjectsPage: React.FC = () => {
           setProjects((prev) =>
             prev.map((p) => (p.id === editingProject.id ? data : p))
           );
+          toast.success(`Project "${trimmedName}" updated successfully.`);
           setIsModalOpen(false);
         }
       } else {
@@ -216,6 +250,7 @@ export const ProjectsPage: React.FC = () => {
           setFormError(error.message);
         } else {
           setProjects((prev) => [data, ...prev]);
+          toast.success(`Project "${trimmedName}" created successfully.`);
           setIsModalOpen(false);
         }
       }
@@ -240,75 +275,113 @@ export const ProjectsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-stone-900 font-sans">
-            Projects Portfolio
+            Projects
           </h1>
           <p className="text-xs text-stone-500 mt-0.5">
-            Manage scopes, schedules, and deliverables for {currentOrg?.name}.
+            Organize milestones, coordinate delivery teams, and track milestones.
           </p>
         </div>
 
         <button
           onClick={handleOpenCreateModal}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-brand-black text-xs font-bold transition-colors shadow-2xs self-start sm:self-auto cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand-primary hover:bg-brand-primary-hover text-brand-black rounded-lg text-xs font-semibold transition-colors shadow-2xs self-start sm:self-auto cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>New Project</span>
         </button>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-stone-200 shadow-2xs">
-        {/* Interactive Filter Tabs (functional segmented control) */}
-        <div className="flex items-center gap-1 p-0.5 bg-stone-100 rounded-lg w-full sm:w-auto overflow-x-auto">
-          {['all', 'planning', 'active', 'on_hold', 'completed'].map((st) => (
-            <button
-              key={st}
-              onClick={() => setFilterStatus(st)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap capitalize ${
-                filterStatus === st
-                  ? 'bg-white text-stone-900 shadow-xs font-semibold'
-                  : 'text-stone-500 hover:text-stone-900'
-              }`}
-            >
-              {st.replace('_', ' ')}
-            </button>
-          ))}
+      {/* Error state banner */}
+      {errorMessage && (
+        <div className="p-3.5 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            onClick={fetchProjects}
+            className="text-xs font-semibold text-red-700 hover:text-red-900 underline shrink-0 cursor-pointer"
+          >
+            Retry
+          </button>
         </div>
+      )}
 
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-stone-200 shadow-2xs">
         {/* Search */}
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search projects..."
+            placeholder="Search projects by title or description..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-stone-50 focus:bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-colors"
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg text-stone-900 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-colors"
           />
+        </div>
+
+        {/* Status Filter */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Filter className="w-3.5 h-3.5 text-stone-400" />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg text-stone-700 font-medium focus:outline-none focus:ring-1 focus:ring-brand-primary transition-colors cursor-pointer"
+          >
+            <option value="all">All Statuses ({projects.length})</option>
+            {STATUS_OPTIONS.map((st) => {
+              const count = projects.filter((p) => p.status === st.value).length;
+              return (
+                <option key={st.value} value={st.value}>
+                  {st.label} ({count})
+                </option>
+              );
+            })}
+          </select>
         </div>
       </div>
 
-      {/* Projects Grid */}
+      {/* Project Cards Grid / Loading / Empty States */}
       {loading ? (
-        <div className="h-64 flex flex-col items-center justify-center text-stone-400 gap-2">
-          <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
-          <span className="text-xs">Loading projects...</span>
+        <div className="h-64 flex flex-col items-center justify-center text-stone-400 gap-3">
+          <Loader2 className="w-7 h-7 animate-spin text-brand-primary" />
+          <span className="text-xs font-medium">Loading workspace projects...</span>
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="p-12 text-center bg-white rounded-xl border border-stone-200 shadow-2xs">
-          <FolderKanban className="w-10 h-10 text-stone-300 mx-auto mb-2.5" />
-          <h3 className="text-sm font-semibold text-stone-800">No projects found</h3>
-          <p className="text-xs text-stone-400 mt-1 max-w-sm mx-auto">
+        <div className="p-12 text-center bg-white border border-stone-200 rounded-xl shadow-2xs">
+          <div className="w-12 h-12 rounded-full bg-brand-accent-light text-brand-primary flex items-center justify-center mx-auto mb-3">
+            <FolderKanban className="w-6 h-6 text-brand-primary" />
+          </div>
+          <h3 className="text-sm font-semibold text-stone-800">
+            {searchQuery || filterStatus !== 'all' ? 'No projects match your filter' : 'No projects created yet'}
+          </h3>
+          <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto leading-relaxed">
             {searchQuery || filterStatus !== 'all'
-              ? 'Try adjusting your search query or status filter.'
-              : 'Create your first project to organize tasks, assignees, and deadlines.'}
+              ? 'Try modifying your search keywords or switching back to all statuses.'
+              : 'Create your first project to organize task boards, track milestones, and assign work.'}
           </p>
-          <button
-            onClick={handleOpenCreateModal}
-            className="mt-4 px-3.5 py-2 bg-brand-primary hover:bg-brand-primary-hover text-brand-black rounded-lg text-xs font-bold transition-colors shadow-2xs cursor-pointer"
-          >
-            Create New Project
-          </button>
+
+          <div className="mt-4 flex items-center justify-center gap-2">
+            {searchQuery || filterStatus !== 'all' ? (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterStatus('all');
+                }}
+                className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+              >
+                Clear Filters
+              </button>
+            ) : (
+              <button
+                onClick={handleOpenCreateModal}
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-brand-black rounded-lg text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              >
+                Create First Project
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -335,21 +408,26 @@ export const ProjectsPage: React.FC = () => {
                       <button
                         onClick={(e) => handleOpenEditModal(project, e)}
                         title="Edit Project"
-                        className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded"
+                        className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded cursor-pointer"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={(e) => handleDeleteProject(project.id, e)}
-                        title="Delete Project"
-                        className="p-1 text-stone-400 hover:text-red-600 hover:bg-stone-100 rounded"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canManageProjects && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(project);
+                          }}
+                          title="Delete Project"
+                          className="p-1 text-stone-400 hover:text-red-600 hover:bg-stone-100 rounded cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  {/* Clean unboxed metadata with separator */}
+                  {/* Metadata */}
                   <div className="flex items-center gap-2 text-xs text-stone-500 mb-3">
                     <span className="capitalize">{project.status.replace('_', ' ')}</span>
                     {project.due_date && (
@@ -402,7 +480,7 @@ export const ProjectsPage: React.FC = () => {
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -508,6 +586,19 @@ export const ProjectsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Safety Confirmation Modal for Deleting Projects */}
+      <ConfirmModal
+        isOpen={!!projectToDelete}
+        title="Delete Project"
+        message={`Are you sure you want to delete "${projectToDelete?.name}"? All associated tasks will be removed.`}
+        confirmLabel="Delete Project"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDeleteProject}
+        onCancel={() => setProjectToDelete(null)}
+      />
     </div>
   );
 };

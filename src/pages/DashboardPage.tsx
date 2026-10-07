@@ -81,8 +81,8 @@ export const DashboardPage: React.FC = () => {
           });
           setProfilesMap(map);
         }
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
+      } catch (err: any) {
+        // Handled via fallback state
       } finally {
         setLoading(false);
       }

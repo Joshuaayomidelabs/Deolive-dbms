@@ -15,13 +15,16 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
 import { OrganizationMember, Profile, MemberRole, Invitation } from '../types/database';
 import { DEMO_TEAM_MEMBERS, DEMO_INVITATIONS } from '../lib/mockData';
 import { InviteMemberModal } from '../components/modals/InviteMemberModal';
+import { ConfirmModal } from '../components/modals/ConfirmModal';
 
 export const TeamPage: React.FC = () => {
   const { currentOrg, user, currentMemberRole, isDemoMode, reportRLSError } = useAuth();
+  const toast = useToast();
 
   const [members, setMembers] = useState<(OrganizationMember & { profile?: Profile })[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -29,15 +32,18 @@ export const TeamPage: React.FC = () => {
   const [loadingInvitations, setLoadingInvitations] = useState(true);
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
-
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
+
+  // Safety Confirmation states
+  const [memberToRemove, setMemberToRemove] = useState<(OrganizationMember & { profile?: Profile }) | null>(null);
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+
+  const [inviteToRevoke, setInviteToRevoke] = useState<Invitation | null>(null);
+  const [isRevokingInvite, setIsRevokingInvite] = useState(false);
 
   const canManageTeam = currentMemberRole === 'owner' || currentMemberRole === 'admin';
 
@@ -100,7 +106,6 @@ export const TeamPage: React.FC = () => {
 
       setMembers(enriched);
     } catch (err: any) {
-      console.error('Error fetching members:', err);
       setErrorMsg(err.message || 'Failed to load team members.');
     } finally {
       setLoadingMembers(false);
@@ -118,7 +123,6 @@ export const TeamPage: React.FC = () => {
 
     setLoadingInvitations(true);
     try {
-      // Owners and admins can SELECT invitations where status = 'pending'
       const { data, error } = await supabase
         .from('invitations')
         .select('*')
@@ -127,14 +131,12 @@ export const TeamPage: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        // If not owner/admin, this might return RLS error, which is expected
-        console.warn('Could not fetch invitations:', error.message);
         setInvitations([]);
       } else {
         setInvitations((data as Invitation[]) || []);
       }
     } catch (err: any) {
-      console.error('Error fetching invitations:', err);
+      setInvitations([]);
     } finally {
       setLoadingInvitations(false);
     }
@@ -148,15 +150,13 @@ export const TeamPage: React.FC = () => {
   const handleRoleChange = async (memberId: string, newRole: MemberRole) => {
     setUpdatingId(memberId);
     setErrorMsg(null);
-    setSuccessMsg(null);
 
     if (isDemoMode) {
       setMembers((prev) =>
         prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m))
       );
-      setSuccessMsg('Member role updated successfully (Demo).');
+      toast.success('Member role updated successfully (Demo).');
       setUpdatingId(null);
-      setTimeout(() => setSuccessMsg(null), 3000);
       return;
     }
 
@@ -168,39 +168,31 @@ export const TeamPage: React.FC = () => {
 
       if (error) {
         reportRLSError('organization_members', 'UPDATE', error);
-        setErrorMsg(error.message);
+        toast.error(error.message || 'Failed to update member role.');
       } else {
         setMembers((prev) =>
           prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m))
         );
-        setSuccessMsg('Member role updated successfully.');
-        setTimeout(() => setSuccessMsg(null), 3000);
+        toast.success('Member role updated successfully.');
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to update member role.');
+      toast.error(err.message || 'Failed to update member role.');
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const handleRemoveMember = async (member: OrganizationMember & { profile?: Profile }) => {
-    if (member.user_id === user?.id) {
-      alert('You cannot remove yourself from the organization.');
-      return;
-    }
-    const displayName = member.profile?.full_name || 'this member';
-    if (!window.confirm(`Are you sure you want to remove ${displayName} from ${currentOrg?.name}?`)) {
-      return;
-    }
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove) return;
 
-    setRemovingMemberId(member.id);
-    setErrorMsg(null);
+    const displayName = memberToRemove.profile?.full_name || 'Team member';
+    setIsRemovingMember(true);
 
     if (isDemoMode) {
-      setMembers((prev) => prev.filter((m) => m.id !== member.id));
-      setSuccessMsg(`Member ${displayName} removed (Demo).`);
-      setRemovingMemberId(null);
-      setTimeout(() => setSuccessMsg(null), 3000);
+      setMembers((prev) => prev.filter((m) => m.id !== memberToRemove.id));
+      toast.success(`${displayName} removed from organization.`);
+      setIsRemovingMember(false);
+      setMemberToRemove(null);
       return;
     }
 
@@ -208,58 +200,53 @@ export const TeamPage: React.FC = () => {
       const { error } = await supabase
         .from('organization_members')
         .delete()
-        .eq('id', member.id);
+        .eq('id', memberToRemove.id);
 
       if (error) {
         reportRLSError('organization_members', 'DELETE', error);
-        setErrorMsg(error.message);
+        toast.error(error.message || 'Failed to remove member.');
       } else {
-        setMembers((prev) => prev.filter((m) => m.id !== member.id));
-        setSuccessMsg(`Member ${displayName} removed from organization.`);
-        setTimeout(() => setSuccessMsg(null), 3000);
+        setMembers((prev) => prev.filter((m) => m.id !== memberToRemove.id));
+        toast.success(`${displayName} removed from organization.`);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to remove member.');
+      toast.error(err.message || 'Failed to remove member.');
     } finally {
-      setRemovingMemberId(null);
+      setIsRemovingMember(false);
+      setMemberToRemove(null);
     }
   };
 
-  const handleRevokeInvitation = async (invitationId: string) => {
-    if (!window.confirm('Are you sure you want to revoke this invitation? The link will no longer work.')) {
-      return;
-    }
-
-    setRevokingId(invitationId);
-    setErrorMsg(null);
+  const handleConfirmRevokeInvitation = async () => {
+    if (!inviteToRevoke) return;
+    setIsRevokingInvite(true);
 
     if (isDemoMode) {
-      setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
-      setSuccessMsg('Invitation revoked successfully (Demo).');
-      setRevokingId(null);
-      setTimeout(() => setSuccessMsg(null), 3000);
+      setInvitations((prev) => prev.filter((inv) => inv.id !== inviteToRevoke.id));
+      toast.success(`Invitation to ${inviteToRevoke.email} revoked.`);
+      setIsRevokingInvite(false);
+      setInviteToRevoke(null);
       return;
     }
 
     try {
-      // Owners and admins can UPDATE invitations (set status = 'revoked')
       const { error } = await supabase
         .from('invitations')
         .update({ status: 'revoked' })
-        .eq('id', invitationId);
+        .eq('id', inviteToRevoke.id);
 
       if (error) {
         reportRLSError('invitations', 'UPDATE', error);
-        setErrorMsg(error.message);
+        toast.error(error.message || 'Failed to revoke invitation.');
       } else {
-        setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
-        setSuccessMsg('Invitation revoked.');
-        setTimeout(() => setSuccessMsg(null), 3000);
+        setInvitations((prev) => prev.filter((inv) => inv.id !== inviteToRevoke.id));
+        toast.success(`Invitation to ${inviteToRevoke.email} revoked.`);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to revoke invitation.');
+      toast.error(err.message || 'Failed to revoke invitation.');
     } finally {
-      setRevokingId(null);
+      setIsRevokingInvite(false);
+      setInviteToRevoke(null);
     }
   };
 
@@ -267,6 +254,7 @@ export const TeamPage: React.FC = () => {
     const link = `${window.location.origin}/accept-invite?token=${token}`;
     navigator.clipboard.writeText(link);
     setCopiedToken(token);
+    toast.info('Invitation link copied to clipboard.');
     setTimeout(() => setCopiedToken(null), 2500);
   };
 
@@ -284,35 +272,19 @@ export const TeamPage: React.FC = () => {
         </div>
 
         {/* Enabled "Invite member" button for owners and admins only */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button
-            type="button"
-            disabled={!canManageTeam}
-            onClick={() => setShowInviteModal(true)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors shadow-2xs ${
-              canManageTeam
-                ? 'bg-brand-primary hover:bg-brand-primary-hover text-brand-black cursor-pointer'
-                : 'bg-stone-200 text-stone-400 cursor-not-allowed opacity-75'
-            }`}
-            title={
-              canManageTeam
-                ? 'Invite teammate to this organization'
-                : 'Only owners and admins can invite new members'
-            }
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Invite member</span>
-          </button>
-        </div>
+        {canManageTeam && (
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setShowInviteModal(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-brand-primary hover:bg-brand-primary-hover text-brand-black transition-colors shadow-2xs cursor-pointer"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Invite Member</span>
+            </button>
+          </div>
+        )}
       </div>
-
-      {/* Feedback alerts */}
-      {successMsg && (
-        <div className="p-3 bg-brand-accent-light border border-brand-primary/30 text-brand-primary-dark rounded-lg text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-brand-primary-dark shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
 
       {errorMsg && (
         <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in">
@@ -329,8 +301,8 @@ export const TeamPage: React.FC = () => {
             Role Privileges in De-Olive DBMS
           </p>
           <p className="text-[11px] text-stone-500 leading-relaxed">
-            <strong>Owner:</strong> Full workspace governance, project creation, and team control. ·{' '}
-            <strong>Admin:</strong> Manage projects, invite members, and update tasks. ·{' '}
+            <strong>Owner:</strong> Full workspace governance, project creation, organization settings, and member controls. ·{' '}
+            <strong>Admin:</strong> Manage projects, invite members, and configure tasks. ·{' '}
             <strong>Member:</strong> View projects and execute assigned tasks.
           </p>
         </div>
@@ -355,7 +327,7 @@ export const TeamPage: React.FC = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-xs border-collapse min-w-[580px]">
                 <thead>
                   <tr className="border-b border-stone-200 bg-stone-50/70 text-stone-500 font-medium">
                     <th className="py-3 px-5">Team Member</th>
@@ -413,7 +385,7 @@ export const TeamPage: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* Role Changer Select */}
+                        {/* Role Changer Select or Read-only Label */}
                         <td className="py-3.5 px-5">
                           <div className="flex items-center gap-2">
                             {canChangeThisMember ? (
@@ -423,7 +395,7 @@ export const TeamPage: React.FC = () => {
                                 onChange={(e) =>
                                   handleRoleChange(member.id, e.target.value as MemberRole)
                                 }
-                                className={`px-2.5 py-1 text-xs rounded-lg border font-medium focus:outline-none focus:ring-1 focus:ring-brand-primary transition-colors ${
+                                className={`px-2.5 py-1 text-xs rounded-lg border font-medium focus:outline-none focus:ring-1 focus:ring-brand-primary transition-colors cursor-pointer ${
                                   member.role === 'owner'
                                     ? 'bg-brand-accent-light border-brand-primary/30 text-brand-primary-dark font-bold'
                                     : member.role === 'admin'
@@ -436,7 +408,15 @@ export const TeamPage: React.FC = () => {
                                 <option value="member">Member</option>
                               </select>
                             ) : (
-                              <span className="text-xs font-semibold capitalize text-stone-700">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold capitalize ${
+                                  member.role === 'owner'
+                                    ? 'bg-brand-accent-light text-brand-primary-dark'
+                                    : member.role === 'admin'
+                                    ? 'bg-amber-50 text-amber-800'
+                                    : 'bg-stone-100 text-stone-700'
+                                }`}
+                              >
                                 {member.role}
                               </span>
                             )}
@@ -459,16 +439,11 @@ export const TeamPage: React.FC = () => {
                         <td className="py-3.5 px-5 text-right">
                           {canManageTeam && !isCurrent && member.role !== 'owner' ? (
                             <button
-                              onClick={() => handleRemoveMember(member)}
-                              disabled={removingMemberId === member.id}
+                              onClick={() => setMemberToRemove(member)}
                               className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-stone-100 rounded-lg transition-colors cursor-pointer"
                               title={`Remove ${displayName}`}
                             >
-                              {removingMemberId === member.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-[11px] text-brand-primary-dark font-semibold">
@@ -524,13 +499,13 @@ export const TeamPage: React.FC = () => {
               <p className="text-xs font-medium text-stone-700">No pending invitations</p>
               <p className="text-[11px] text-stone-400">
                 {canManageTeam
-                  ? 'Click "Invite member" above to generate an invitation link for a teammate.'
+                  ? 'Click "Invite Member" above to generate an invitation link for a teammate.'
                   : 'There are currently no outstanding invitations for this workspace.'}
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-xs border-collapse min-w-[580px]">
                 <thead>
                   <tr className="border-b border-stone-200 bg-stone-50/70 text-stone-500 font-medium">
                     <th className="py-3 px-5">Invited Email</th>
@@ -543,7 +518,6 @@ export const TeamPage: React.FC = () => {
                 <tbody className="divide-y divide-stone-100 text-stone-700">
                   {invitations.map((invite) => {
                     const isCopied = copiedToken === invite.token;
-                    const isRevoking = revokingId === invite.id;
 
                     const sentDate = invite.created_at
                       ? new Date(invite.created_at).toLocaleDateString(undefined, {
@@ -622,16 +596,11 @@ export const TeamPage: React.FC = () => {
                             {canManageTeam && (
                               <button
                                 type="button"
-                                disabled={isRevoking}
-                                onClick={() => handleRevokeInvitation(invite.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded border border-red-200 hover:bg-red-50 text-red-700 font-medium transition-colors cursor-pointer disabled:opacity-50"
+                                onClick={() => setInviteToRevoke(invite)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded border border-red-200 hover:bg-red-50 text-red-700 font-medium transition-colors cursor-pointer"
                                 title="Revoke this invitation"
                               >
-                                {isRevoking ? (
-                                  <Loader2 className="w-3 h-3 animate-spin text-red-600" />
-                                ) : (
-                                  <Ban className="w-3 h-3 text-red-600" />
-                                )}
+                                <Ban className="w-3 h-3 text-red-600" />
                                 <span>Revoke</span>
                               </button>
                             )}
@@ -654,6 +623,34 @@ export const TeamPage: React.FC = () => {
         onInvitationCreated={() => {
           fetchInvitations();
         }}
+      />
+
+      {/* Safety Confirm Modal for Removing Member */}
+      <ConfirmModal
+        isOpen={!!memberToRemove}
+        title="Remove Team Member"
+        message={`Are you sure you want to remove ${
+          memberToRemove?.profile?.full_name || 'this member'
+        } from ${currentOrg?.name}? They will lose access to all projects and tasks.`}
+        confirmLabel="Remove Member"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={isRemovingMember}
+        onConfirm={handleConfirmRemoveMember}
+        onCancel={() => setMemberToRemove(null)}
+      />
+
+      {/* Safety Confirm Modal for Revoking Invitation */}
+      <ConfirmModal
+        isOpen={!!inviteToRevoke}
+        title="Revoke Invitation"
+        message={`Are you sure you want to revoke the invitation sent to ${inviteToRevoke?.email}? The invite link will no longer function.`}
+        confirmLabel="Revoke Invitation"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={isRevokingInvite}
+        onConfirm={handleConfirmRevokeInvitation}
+        onCancel={() => setInviteToRevoke(null)}
       />
     </div>
   );

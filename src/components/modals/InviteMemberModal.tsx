@@ -55,10 +55,15 @@ export const InviteMemberModal: React.FC<Props> = ({
       return;
     }
 
+    const targetEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(targetEmail)) {
+      setErrorMsg('Please enter a valid email address (e.g. name@company.com).');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg(null);
-
-    const targetEmail = email.trim().toLowerCase();
 
     if (isDemoMode) {
       // Simulate RPC response in demo mode
@@ -91,7 +96,6 @@ export const InviteMemberModal: React.FC<Props> = ({
       setGeneratedToken(tokenString);
       onInvitationCreated();
     } catch (err: any) {
-      console.error('Failed to create invitation via RPC:', err);
       setErrorMsg(err.message || 'Failed to create invitation. Please check database permissions.');
     } finally {
       setLoading(false);
