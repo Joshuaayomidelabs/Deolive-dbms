@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  /* De-Olive Brand Color System extracted from DOC logo */
+  --color-brand-primary: #56B900;
+  --color-brand-primary-hover: #48A000;
+  --color-brand-primary-dark: #2A5C00;
+  --color-brand-accent: #82D616;
+  --color-brand-accent-light: #EFF9E2;
+  --color-brand-tint: #A8E966;
+  --color-brand-black: #0D0D0D;
+  --color-brand-surface: #171717;
+}
+
+:root {
+  /* Brand CSS Variables for global single-place customization */
+  --brand-primary: #56B900;
+  --brand-primary-hover: #48A000;
+  --brand-primary-dark: #2A5C00;
+  --brand-accent: #82D616;
+  --brand-accent-light: #EFF9E2;
+  --brand-tint: #A8E966;
+  --brand-black: #0D0D0D;
+}
+
+/* Ensure smooth font rendering and selection */
+::selection {
+  background-color: rgba(86, 185, 0, 0.25);
+  color: #0D0D0D;
+}

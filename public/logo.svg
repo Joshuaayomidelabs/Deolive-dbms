@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 420" width="100%" height="100%" fill="none">
+  <!-- DE-OLIVE CONCEPT Brand Mark -->
+  <defs>
+    <radialGradient id="dotGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#82D616"/>
+      <stop offset="100%" stop-color="#56B900"/>
+    </radialGradient>
+    <linearGradient id="pillGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#56B900"/>
+      <stop offset="100%" stop-color="#4CA500"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(10, 0)">
+    <!-- 1. LEFT: 'D' Section -->
+    <!-- Solid Black Semicircle Body -->
+    <path d="M 140 85 A 95 95 0 0 1 140 275 L 140 85 Z" fill="#0D0D0D"/>
+
+    <!-- Vertical Green Pill Spine -->
+    <rect x="100" y="85" width="40" height="190" rx="20" ry="20" fill="url(#pillGrad)"/>
+
+    <!-- Subtle line dividing top/bottom capsule -->
+    <line x1="100" y1="180" x2="140" y2="180" stroke="#489C00" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Top Circle Highlight -->
+    <circle cx="120" cy="105" r="13" fill="#A8E966" opacity="0.65"/>
+    <circle cx="120" cy="105" r="10" stroke="#489C00" stroke-width="1" fill="none" opacity="0.5"/>
+
+    <!-- Bottom Light Circle -->
+    <circle cx="120" cy="255" r="16" fill="#A8E966" opacity="0.85"/>
+    <circle cx="120" cy="255" r="13" stroke="#489C00" stroke-width="1" fill="none" opacity="0.4"/>
+
+    <!-- 2. CENTER: 'O' Section -->
+    <!-- Black circular base -->
+    <circle cx="245" cy="180" r="70" fill="#0D0D0D"/>
+
+    <!-- Inner central cutout -->
+    <circle cx="245" cy="180" r="26" fill="#0D0D0D"/>
+
+    <!-- Halftone Dots forming the green 'O' body -->
+    <!-- Ring 1 (Outer - r=63, 24 dots) -->
+    <g fill="url(#dotGrad)">
+      <circle cx="308" cy="180" r="4.2"/>
+      <circle cx="306" cy="196" r="4.2"/>
+      <circle cx="300" cy="212" r="4.2"/>
+      <circle cx="290" cy="225" r="4.2"/>
+      <circle cx="276" cy="235" r="4.2"/>
+      <circle cx="261" cy="241" r="4.2"/>
+      <circle cx="245" cy="243" r="4.2"/>
+      <circle cx="229" cy="241" r="4.2"/>
+      <circle cx="214" cy="235" r="4.2"/>
+      <circle cx="200" cy="225" r="4.2"/>
+      <circle cx="190" cy="212" r="4.2"/>
+      <circle cx="184" cy="196" r="4.2"/>
+      <circle cx="182" cy="180" r="4.2"/>
+      <circle cx="184" cy="164" r="4.2"/>
+      <circle cx="190" cy="148" r="4.2"/>
+      <circle cx="200" cy="135" r="4.2"/>
+      <circle cx="214" cy="125" r="4.2"/>
+      <circle cx="229" cy="119" r="4.2"/>
+      <circle cx="245" cy="117" r="4.2"/>
+      <circle cx="261" cy="119" r="4.2"/>
+      <circle cx="276" cy="125" r="4.2"/>
+      <circle cx="290" cy="135" r="4.2"/>
+      <circle cx="300" cy="148" r="4.2"/>
+      <circle cx="306" cy="164" r="4.2"/>
+    </g>
+
+    <!-- Ring 2 (Middle - r=51, 20 dots) -->
+    <g fill="url(#dotGrad)">
+      <circle cx="296" cy="180" r="5.0"/>
+      <circle cx="293" cy="196" r="5.0"/>
+      <circle cx="286" cy="210" r="5.0"/>
+      <circle cx="274" cy="221" r="5.0"/>
+      <circle cx="261" cy="228" r="5.0"/>
+      <circle cx="245" cy="231" r="5.0"/>
+      <circle cx="229" cy="228" r="5.0"/>
+      <circle cx="216" cy="221" r="5.0"/>
+      <circle cx="204" cy="210" r="5.0"/>
+      <circle cx="197" cy="196" r="5.0"/>
+      <circle cx="194" cy="180" r="5.0"/>
+      <circle cx="197" cy="164" r="5.0"/>
+      <circle cx="204" cy="150" r="5.0"/>
+      <circle cx="216" cy="139" r="5.0"/>
+      <circle cx="229" cy="132" r="5.0"/>
+      <circle cx="245" cy="129" r="5.0"/>
+      <circle cx="261" cy="132" r="5.0"/>
+      <circle cx="274" cy="139" r="5.0"/>
+      <circle cx="286" cy="150" r="5.0"/>
+      <circle cx="293" cy="164" r="5.0"/>
+    </g>
+
+    <!-- Ring 3 (Inner - r=39, 16 dots) -->
+    <g fill="#56B900">
+      <circle cx="284" cy="180" r="4.2"/>
+      <circle cx="281" cy="195" r="4.2"/>
+      <circle cx="273" cy="208" r="4.2"/>
+      <circle cx="261" cy="216" r="4.2"/>
+      <circle cx="245" cy="219" r="4.2"/>
+      <circle cx="229" cy="216" r="4.2"/>
+      <circle cx="217" cy="208" r="4.2"/>
+      <circle cx="209" cy="195" r="4.2"/>
+      <circle cx="206" cy="180" r="4.2"/>
+      <circle cx="209" cy="165" r="4.2"/>
+      <circle cx="217" cy="152" r="4.2"/>
+      <circle cx="229" cy="144" r="4.2"/>
+      <circle cx="245" cy="141" r="4.2"/>
+      <circle cx="261" cy="144" r="4.2"/>
+      <circle cx="273" cy="152" r="4.2"/>
+      <circle cx="281" cy="165" r="4.2"/>
+    </g>
+
+    <!-- Ring 4 (Small Core - r=30, 12 dots) -->
+    <g fill="#439300">
+      <circle cx="275" cy="180" r="2.8"/>
+      <circle cx="271" cy="195" r="2.8"/>
+      <circle cx="260" cy="206" r="2.8"/>
+      <circle cx="245" cy="210" r="2.8"/>
+      <circle cx="230" cy="206" r="2.8"/>
+      <circle cx="219" cy="195" r="2.8"/>
+      <circle cx="215" cy="180" r="2.8"/>
+      <circle cx="219" cy="165" r="2.8"/>
+      <circle cx="230" cy="154" r="2.8"/>
+      <circle cx="245" cy="150" r="2.8"/>
+      <circle cx="260" cy="154" r="2.8"/>
+      <circle cx="271" cy="165" r="2.8"/>
+    </g>
+
+    <!-- 3. RIGHT: 'C' Arc Section -->
+    <!-- Black inner crescent wedge -->
+    <path d="M 350 185 L 350 102 A 80 80 0 0 1 405 125 L 382 148 A 45 45 0 0 0 350 137 Z" fill="#0D0D0D"/>
+
+    <!-- Vibrant Green Curved Arc 'C' -->
+    <path d="M 350 185 L 350 102 A 85 85 0 0 1 438 102 L 430 128 A 60 60 0 0 0 350 148 L 350 185 Z" fill="#56B900"/>
+    <path d="M 370 102 A 80 80 0 0 1 438 102 L 434 118 A 65 65 0 0 0 380 118 Z" fill="#489C00"/>
+
+    <!-- Horizontal Speed / DBMS Data Stream Lines -->
+    <g fill="#0D0D0D">
+      <!-- Line 1 -->
+      <polygon points="315,188 355,188 351,192 315,192"/>
+      <!-- Line 2 -->
+      <polygon points="325,198 375,198 370,203 325,203"/>
+      <!-- Line 3 -->
+      <polygon points="338,209 405,209 399,215 338,215"/>
+      <!-- Line 4 -->
+      <polygon points="355,221 430,221 423,227 355,227"/>
+      <!-- Line 5 -->
+      <polygon points="375,233 445,233 438,239 375,239"/>
+      <!-- Line 6 (lowest line) -->
+      <polygon points="398,245 435,245 429,250 398,250"/>
+    </g>
+  </g>
+
+  <!-- Typography below: DE-OLIVE CONCEPT -->
+  <text x="260" y="335" 
+        text-anchor="middle" 
+        font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" 
+        font-size="27" 
+        font-weight="700" 
+        letter-spacing="0.22em" 
+        fill="#0D0D0D">DE–OLIVE CONCEPT</text>
+</svg>

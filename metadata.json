@@ -1,0 +1,6 @@
+{
+  "name": "De-Olive DBMS",
+  "description": "Cloud-based SaaS project management platform for planning, executing, and monitoring projects with Supabase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
