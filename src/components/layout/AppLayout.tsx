@@ -1,27 +1,35 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  FolderKanban,
   LayoutDashboard,
-  Kanban,
   Users,
+  FolderKanban,
+  Palette,
+  DollarSign,
+  Truck,
+  Package,
+  UserCheck,
+  BarChart3,
+  Kanban,
+  Calendar,
+  Shield,
   Settings,
-  Plus,
   LogOut,
   ChevronDown,
   Building2,
   ShieldAlert,
   Database,
-  ExternalLink,
-  Sparkles,
-  Check,
+  Plus,
+  Bell,
   Menu,
   X,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { RLSErrorModal } from '../modals/RLSErrorModal';
 import { SupabaseConfigModal } from '../modals/SupabaseConfigModal';
 import { OrganizationSetupModal } from '../modals/OrganizationSetupModal';
+import { AIAssistantDrawer } from '../AIAssistantDrawer';
 
 export const AppLayout: React.FC = () => {
   const {
@@ -36,7 +44,7 @@ export const AppLayout: React.FC = () => {
     isConfigured,
     rlsError,
   } = useAuth();
-  
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -45,17 +53,6 @@ export const AppLayout: React.FC = () => {
   const [showNewOrgModal, setShowNewOrgModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Derive page title for breadcrumb
-  const getBreadcrumbTitle = () => {
-    const path = location.pathname;
-    if (path === '/') return 'Overview';
-    if (path.startsWith('/projects')) return 'Projects';
-    if (path.startsWith('/tasks')) return 'Task Board';
-    if (path.startsWith('/team')) return 'Team & Roles';
-    if (path.startsWith('/settings')) return 'Settings';
-    return 'Workspace';
-  };
-
   const userDisplayName = profile?.full_name || user?.user_metadata?.full_name || 'Team Member';
   const userInitials = userDisplayName
     .split(' ')
@@ -63,147 +60,84 @@ export const AppLayout: React.FC = () => {
     .map((n: string) => n[0])
     .join('')
     .toUpperCase()
-    .slice(0, 2);
+    .slice(0, 2) || 'DO';
 
-  // Navigation Links component reusable for both desktop and mobile
-  const renderNavLinks = () => (
-    <nav className="flex-1 p-3 space-y-1 text-xs">
-      <NavLink
-        to="/"
-        end
-        onClick={() => setMobileMenuOpen(false)}
-        className={({ isActive }) =>
-          `flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-medium transition-colors ${
-            isActive
-              ? 'bg-brand-primary/15 text-brand-accent border border-brand-primary/30 font-semibold'
-              : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/50'
-          }`
-        }
-      >
-        <LayoutDashboard className="w-4 h-4" />
-        <span>Overview</span>
-      </NavLink>
+  const isOwnerOrAdmin = currentMemberRole === 'owner' || currentMemberRole === 'admin' || isDemoMode;
 
-      <NavLink
-        to="/projects"
-        onClick={() => setMobileMenuOpen(false)}
-        className={({ isActive }) =>
-          `flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-medium transition-colors ${
-            isActive
-              ? 'bg-brand-primary/15 text-brand-accent border border-brand-primary/30 font-semibold'
-              : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/50'
-          }`
-        }
-      >
-        <FolderKanban className="w-4 h-4" />
-        <span>Projects</span>
-      </NavLink>
-
-      <NavLink
-        to="/tasks"
-        onClick={() => setMobileMenuOpen(false)}
-        className={({ isActive }) =>
-          `flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-medium transition-colors ${
-            isActive
-              ? 'bg-brand-primary/15 text-brand-accent border border-brand-primary/30 font-semibold'
-              : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/50'
-          }`
-        }
-      >
-        <Kanban className="w-4 h-4" />
-        <span>Task Board</span>
-      </NavLink>
-
-      <NavLink
-        to="/team"
-        onClick={() => setMobileMenuOpen(false)}
-        className={({ isActive }) =>
-          `flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-medium transition-colors ${
-            isActive
-              ? 'bg-brand-primary/15 text-brand-accent border border-brand-primary/30 font-semibold'
-              : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/50'
-          }`
-        }
-      >
-        <Users className="w-4 h-4" />
-        <span>Team & Roles</span>
-      </NavLink>
-
-      <NavLink
-        to="/settings"
-        onClick={() => setMobileMenuOpen(false)}
-        className={({ isActive }) =>
-          `flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-medium transition-colors ${
-            isActive
-              ? 'bg-brand-primary/15 text-brand-accent border border-brand-primary/30 font-semibold'
-              : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/50'
-          }`
-        }
-      >
-        <Settings className="w-4 h-4" />
-        <span>Settings</span>
-      </NavLink>
-    </nav>
-  );
+  const navItems = [
+    { name: 'Dashboard', path: '/', icon: LayoutDashboard, exact: true },
+    { name: 'Clients', path: '/clients', icon: Users },
+    { name: 'Projects', path: '/projects', icon: FolderKanban },
+    { name: 'Designs', path: '/designs', icon: Palette },
+    ...(isOwnerOrAdmin ? [{ name: 'Finance', path: '/finance', icon: DollarSign }] : []),
+    { name: 'Vendors', path: '/vendors', icon: Truck },
+    { name: 'Inventory', path: '/inventory', icon: Package },
+    { name: 'Staff', path: '/staff', icon: UserCheck },
+    { name: 'Reports', path: '/reports', icon: BarChart3 },
+    { name: 'Tasks', path: '/tasks', icon: Kanban },
+    { name: 'Calendar', path: '/calendar', icon: Calendar },
+    { name: 'Team', path: '/team', icon: Shield },
+  ];
 
   const renderSidebarContent = () => (
-    <div className="flex flex-col h-full bg-stone-900 text-stone-300">
-      {/* Brand Wordmark & Top Zone */}
-      <div className="h-16 px-5 flex items-center justify-between border-b border-stone-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 border border-stone-700/80 shadow-2xs">
+    <div className="flex flex-col h-full bg-[#0A0A0A] text-stone-300 border-r border-[#1C1C20] select-none">
+      {/* Brand Header */}
+      <div className="h-20 px-5 flex items-center justify-between border-b border-[#18181C]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-black ring-2 ring-[#77C614] p-1 flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(119,198,20,0.25)]">
             <img
               src="/logo.png"
-              alt="De-Olive DBMS"
-              className="h-full w-full object-contain"
+              alt="DE-OLIVE"
+              className="w-full h-full object-contain rounded-full"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = '/logo.svg';
               }}
             />
           </div>
-          <span className="text-sm font-bold tracking-tight text-white font-sans">
-            De-Olive DBMS
-          </span>
+          <div>
+            <h1 className="text-sm font-extrabold tracking-wider text-white uppercase leading-none font-sans">
+              DE-OLIVE
+            </h1>
+            <span className="text-[10px] tracking-[0.25em] font-bold text-[#77C614] uppercase block mt-1 leading-none">
+              CONCEPT
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {isDemoMode && (
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-              Demo
-            </span>
-          )}
-          {mobileMenuOpen && (
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="md:hidden text-stone-400 hover:text-white p-1 rounded-lg"
-              aria-label="Close menu"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
-        </div>
+        {mobileMenuOpen && (
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="md:hidden text-stone-400 hover:text-white p-1.5 rounded-lg hover:bg-stone-800 transition-colors cursor-pointer"
+            aria-label="Close navigation"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
-      {/* Organization Switcher Dropdown */}
-      <div className="p-3 border-b border-stone-800/80 relative">
+      {/* Organization Switcher */}
+      <div className="px-4 py-3 border-b border-[#18181C] relative">
         <button
           onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-          className="w-full flex items-center justify-between p-2 rounded-lg bg-stone-800/70 hover:bg-stone-800 text-stone-200 transition-colors text-xs font-medium border border-stone-700/60"
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#141417] hover:bg-[#1B1B20] text-stone-200 transition-colors text-xs font-medium border border-[#25252B]"
         >
           <div className="flex items-center gap-2 truncate">
-            <div className="w-5 h-5 rounded bg-brand-primary/20 border border-brand-primary/40 flex items-center justify-center text-brand-accent shrink-0">
+            <div className="w-5 h-5 rounded-md bg-[#77C614]/15 border border-[#77C614]/30 flex items-center justify-center text-[#77C614] shrink-0">
               <Building2 className="w-3 h-3" />
             </div>
-            <span className="truncate">{currentOrg?.name || 'Select Organization'}</span>
+            <span className="truncate">{currentOrg?.name || 'Workspace'}</span>
           </div>
-          <ChevronDown className={`w-3.5 h-3.5 text-stone-400 shrink-0 transition-transform ${orgDropdownOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`w-3.5 h-3.5 text-stone-400 shrink-0 transition-transform ${
+              orgDropdownOpen ? 'rotate-180' : ''
+            }`}
+          />
         </button>
 
-        {/* Org Dropdown Menu */}
         {orgDropdownOpen && (
-          <div className="absolute top-full left-3 right-3 mt-1 bg-stone-900 border border-stone-700 rounded-lg shadow-xl z-30 py-1 text-xs">
-            <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-stone-400">
-              Switch Organization
+          <div className="absolute top-full left-4 right-4 mt-1 bg-[#121215] border border-[#26262D] rounded-xl shadow-2xl z-30 py-1.5 text-xs animate-in fade-in duration-150">
+            <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+              Organizations
             </div>
             {organizations.map((org) => (
               <button
@@ -212,24 +146,24 @@ export const AppLayout: React.FC = () => {
                   switchOrganization(org.id);
                   setOrgDropdownOpen(false);
                 }}
-                className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-stone-800 transition-colors ${
-                  org.id === currentOrg?.id ? 'text-brand-accent font-semibold' : 'text-stone-300'
+                className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-[#1C1C22] transition-colors ${
+                  org.id === currentOrg?.id ? 'text-[#77C614] font-bold' : 'text-stone-300'
                 }`}
               >
                 <span className="truncate">{org.name}</span>
-                {org.id === currentOrg?.id && <Check className="w-3.5 h-3.5 shrink-0 ml-1 text-brand-accent" />}
+                {org.id === currentOrg?.id && <Check className="w-3.5 h-3.5 shrink-0 text-[#77C614]" />}
               </button>
             ))}
 
-            <div className="border-t border-stone-800 my-1 pt-1">
+            <div className="border-t border-[#202026] my-1 pt-1">
               <button
                 onClick={() => {
                   setOrgDropdownOpen(false);
                   setShowNewOrgModal(true);
                 }}
-                className="w-full px-3 py-2 text-left text-stone-300 hover:text-white hover:bg-stone-800 transition-colors flex items-center gap-2"
+                className="w-full px-3 py-2 text-left text-stone-300 hover:text-white hover:bg-[#1C1C22] transition-colors flex items-center gap-2 font-medium"
               >
-                <Plus className="w-3.5 h-3.5 text-brand-accent" />
+                <Plus className="w-3.5 h-3.5 text-[#77C614]" />
                 <span>Create Organization</span>
               </button>
             </div>
@@ -237,18 +171,44 @@ export const AppLayout: React.FC = () => {
         )}
       </div>
 
-      {/* Navigation Links */}
-      {renderNavLinks()}
+      {/* Main Navigation Items */}
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto text-xs">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.exact}
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-150 ${
+                  isActive
+                    ? 'bg-[#77C614] text-[#0A0A0A] font-bold shadow-[0_0_15px_rgba(119,198,20,0.35)]'
+                    : 'text-stone-400 hover:text-stone-100 hover:bg-[#151518] font-medium'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-black' : 'text-stone-400'}`} />
+                  <span className="truncate">{item.name}</span>
+                </>
+              )}
+            </NavLink>
+          );
+        })}
+      </nav>
 
-      {/* Database & Diagnostics Strip */}
-      <div className="p-3 border-t border-stone-800/80 space-y-1.5">
+      {/* Diagnostic & Database Status */}
+      <div className="p-3 border-t border-[#18181C] space-y-1.5">
         {rlsError && (
-          <div className="p-2 rounded bg-amber-950/60 border border-amber-800/50 text-amber-300 text-[11px] flex items-center justify-between">
+          <div className="p-2 rounded-xl bg-amber-950/60 border border-amber-800/50 text-amber-300 text-[11px] flex items-center justify-between">
             <span className="flex items-center gap-1.5 truncate">
               <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-              RLS Diagnostic
+              RLS Policy
             </span>
-            <span className="underline cursor-pointer font-medium">Fix</span>
+            <span className="underline cursor-pointer font-medium">Review</span>
           </div>
         )}
 
@@ -257,70 +217,79 @@ export const AppLayout: React.FC = () => {
             setShowConfigModal(true);
             setMobileMenuOpen(false);
           }}
-          className="w-full flex items-center justify-between p-2 rounded-lg bg-stone-800/50 hover:bg-stone-800 text-stone-400 hover:text-stone-200 transition-colors text-xs"
+          className="w-full flex items-center justify-between p-2 rounded-xl bg-[#141417] hover:bg-[#1C1C20] text-stone-400 hover:text-stone-200 transition-colors text-xs border border-[#202026]"
         >
           <span className="flex items-center gap-2">
-            <Database className="w-3.5 h-3.5 text-brand-primary" />
-            <span>Supabase Connection</span>
+            <Database className="w-3.5 h-3.5 text-[#77C614]" />
+            <span>Supabase Cloud</span>
           </span>
-          <span className="text-[10px] font-mono text-stone-500">
-            {isConfigured ? 'LIVE' : 'SETUP'}
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black text-[#77C614] border border-[#77C614]/30">
+            {isConfigured ? 'CONNECTED' : 'MOCK'}
           </span>
         </button>
       </div>
 
-      {/* Current User Profile Footer */}
-      <div className="p-3 border-t border-stone-800 flex items-center justify-between">
-        <div className="flex items-center gap-2.5 truncate">
-          {profile?.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={userDisplayName}
-              className="w-7 h-7 rounded-full object-cover border border-stone-700 shrink-0"
-            />
-          ) : (
-            <div className="w-7 h-7 rounded-full bg-brand-primary/20 border border-brand-primary/40 text-brand-accent flex items-center justify-center font-bold text-[11px] shrink-0">
+      {/* Footer Profile & Settings */}
+      <div className="p-3 border-t border-[#18181C] space-y-1">
+        <NavLink
+          to="/settings"
+          onClick={() => setMobileMenuOpen(false)}
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs transition-colors ${
+              isActive
+                ? 'bg-[#77C614] text-black font-bold'
+                : 'text-stone-400 hover:text-white hover:bg-[#151518]'
+            }`
+          }
+        >
+          <Settings className="w-4 h-4" />
+          <span>Settings</span>
+        </NavLink>
+
+        <div className="pt-2 flex items-center justify-between px-2">
+          <div className="flex items-center gap-2.5 truncate">
+            <div className="w-7 h-7 rounded-full bg-[#111113] ring-1 ring-[#77C614] text-[#77C614] flex items-center justify-center font-bold text-[11px] shrink-0">
               {userInitials}
             </div>
-          )}
-          <div className="truncate">
-            <p className="text-xs font-medium text-stone-200 truncate leading-none">
-              {userDisplayName}
-            </p>
-            <p className="text-[10px] text-stone-500 capitalize mt-1 leading-none">
-              {currentMemberRole || 'Member'}
-            </p>
+            <div className="truncate">
+              <p className="text-xs font-semibold text-stone-200 truncate leading-none">
+                {userDisplayName}
+              </p>
+              <p className="text-[10px] text-stone-500 capitalize mt-1 leading-none">
+                {currentMemberRole || 'Administrator'}
+              </p>
+            </div>
           </div>
-        </div>
 
-        <button
-          onClick={signOut}
-          title="Log out"
-          className="p-1.5 rounded-lg text-stone-400 hover:text-red-400 hover:bg-stone-800 transition-colors cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
+          <button
+            onClick={signOut}
+            title="Log out"
+            className="p-1.5 rounded-lg text-stone-400 hover:text-red-400 hover:bg-[#1A1A20] transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-stone-100 flex text-stone-900 font-sans antialiased selection:bg-brand-primary/20 selection:text-stone-900">
-      {/* Desktop Fixed Sidebar */}
-      <aside className="hidden md:flex w-64 shrink-0 border-r border-stone-800 select-none flex-col">
+    <div className="min-h-screen bg-[#F8F8FA] flex text-[#111113] font-sans antialiased selection:bg-[#77C614]/30 selection:text-black">
+      {/* Desktop Fixed Sidebar: permanently visible on the left */}
+      <aside className="hidden md:flex w-64 shrink-0 border-r border-[#1C1C20] select-none flex-col h-screen sticky top-0">
         {renderSidebarContent()}
       </aside>
 
       {/* Mobile Slide-over Drawer & Backdrop */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
-          {/* Backdrop */}
+          {/* Backdrop: dimmed, blurred page */}
           <div
-            className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
             onClick={() => setMobileMenuOpen(false)}
           />
 
-          {/* Drawer */}
+          {/* Drawer slides in from the left with close X */}
           <div className="relative w-72 max-w-[85vw] h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
             {renderSidebarContent()}
           </div>
@@ -328,58 +297,67 @@ export const AppLayout: React.FC = () => {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header Bar */}
-        <header className="h-16 px-4 sm:px-6 lg:px-8 bg-white border-b border-stone-200 flex items-center justify-between shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Top Bar (White) per Global Layout spec:
+            - Hamburger menu on left
+            - On the right: bell icon with small green dot, thin vertical divider, round avatar with user initials (black circle, lime text, lime ring)
+        */}
+        <header className="h-16 px-4 sm:px-6 lg:px-8 bg-white border-b border-[#EEEEF2] flex items-center justify-between shrink-0 sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            {/* Mobile Hamburger Menu Toggle */}
+            {/* Hamburger menu on left */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors"
+              className="md:hidden p-2 rounded-xl text-stone-700 hover:text-black hover:bg-stone-100 transition-colors cursor-pointer"
               aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Breadcrumb Zone */}
-            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-stone-500">
-              <span className="font-medium text-stone-700 truncate max-w-[120px] sm:max-w-none">
-                {currentOrg?.name || 'Workspace'}
+            {/* Breadcrumb Workspace Name */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-extrabold text-stone-900 tracking-tight">
+                {currentOrg?.name || 'De-Olive Workspace'}
               </span>
-              <span aria-hidden="true" className="text-stone-300">/</span>
-              <span className="font-semibold text-stone-900">{getBreadcrumbTitle()}</span>
+              {isDemoMode && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  Demo Workspace
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Action Zone */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {isDemoMode && (
-              <button
-                onClick={() => setShowConfigModal(true)}
-                className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Switch to Live Supabase</span>
-              </button>
-            )}
-
+          {/* Right zone: Bell with green dot, divider, and round avatar with initials */}
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
-              onClick={() => navigate('/projects')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-brand-black text-xs font-semibold transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
+              type="button"
+              title="Notifications"
+              className="relative p-2 rounded-xl text-stone-600 hover:text-stone-950 hover:bg-stone-100 transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">New Project</span>
-              <span className="sm:hidden">Project</span>
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#77C614] ring-2 ring-white" />
             </button>
+
+            <div className="h-5 w-px bg-stone-200" />
+
+            <div
+              title={userDisplayName}
+              className="w-9 h-9 rounded-full bg-[#111113] ring-2 ring-[#77C614] text-[#77C614] flex items-center justify-center font-bold text-xs shadow-xs select-none cursor-pointer"
+              onClick={() => navigate('/settings')}
+            >
+              {userInitials}
+            </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
       </div>
+
+      {/* Floating AI Button & Assistant Drawer */}
+      <AIAssistantDrawer />
 
       {/* Global Modals */}
       <RLSErrorModal />

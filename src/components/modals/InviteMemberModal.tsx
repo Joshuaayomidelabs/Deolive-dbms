@@ -314,9 +314,9 @@ export const InviteMemberModal: React.FC<Props> = ({
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-brand-black rounded-lg font-bold transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#111113] hover:bg-[#222226] text-white rounded-xl font-semibold transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
                 >
-                  {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-black" />}
+                  {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#77C614]" />}
                   <span>Generate Invitation Link</span>
                 </button>
               </div>

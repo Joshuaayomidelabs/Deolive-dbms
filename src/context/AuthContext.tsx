@@ -29,6 +29,7 @@ interface AuthContextType {
   createOrganization: (name: string, industry: string, teamSize: string) => Promise<{ error: Error | null; organization?: Organization }>;
   updateProfile: (fullName: string) => Promise<{ error: Error | null; profile?: Profile | null }>;
   updateOrganization: (orgId: string, updates: { name: string; industry: string; team_size: string }) => Promise<{ error: Error | null; organization?: Organization | null }>;
+  updateOrgCurrency: (currency: string) => Promise<{ error: Error | null; organization?: Organization | null }>;
   switchOrganization: (orgId: string) => void;
   toggleDemoMode: (enable?: boolean) => void;
   refreshUserData: () => Promise<void>;
@@ -517,6 +518,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateOrgCurrency = async (newCurrency: string) => {
+    if (!currentOrg) {
+      return { error: new Error('No active organization selected.'), organization: null };
+    }
+
+    const isOwnerOrAdmin = currentMemberRole === 'owner' || currentMemberRole === 'admin' || isDemoMode;
+    if (!isOwnerOrAdmin) {
+      return { error: new Error('Permission denied. Only organization owners and admins can update the currency setting.'), organization: null };
+    }
+
+    const validCurrency = (newCurrency || 'USD').toUpperCase();
+
+    if (isDemoMode) {
+      const updatedOrg: Organization = {
+        ...currentOrg,
+        currency: validCurrency,
+      };
+      setCurrentOrg(updatedOrg);
+      setOrganizations((prev) =>
+        prev.map((o) => (o.id === currentOrg.id ? updatedOrg : o))
+      );
+      return { error: null, organization: updatedOrg };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .update({ currency: validCurrency })
+        .eq('id', currentOrg.id)
+        .select()
+        .single();
+
+      if (error) {
+        if (isRLSError(error)) {
+          reportRLSError('organizations', 'UPDATE', error);
+        }
+        return { error, organization: null };
+      }
+
+      setCurrentOrg(data);
+      setOrganizations((prev) =>
+        prev.map((o) => (o.id === currentOrg.id ? data : o))
+      );
+      return { error: null, organization: data };
+    } catch (err: any) {
+      return { error: err, organization: null };
+    }
+  };
+
   const switchOrganization = (orgId: string) => {
     const selected = organizations.find((o) => o.id === orgId);
     if (selected) {
@@ -561,6 +611,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createOrganization,
         updateProfile,
         updateOrganization,
+        updateOrgCurrency,
         switchOrganization,
         toggleDemoMode,
         refreshUserData,

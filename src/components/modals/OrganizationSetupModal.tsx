@@ -79,11 +79,11 @@ export const OrganizationSetupModal: React.FC<Props> = ({
         {/* Header */}
         <div className="px-6 py-5 border-b border-stone-100 bg-stone-50/70 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-lg bg-white border border-stone-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+            <div className="w-11 h-11 rounded-full bg-black ring-2 ring-[#77C614] p-1 flex items-center justify-center shrink-0 shadow-xs">
               <img
                 src="/logo.png"
                 alt="De-Olive DBMS"
-                className="h-full w-full object-contain"
+                className="h-full w-full object-contain rounded-full"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/logo.svg';
                 }}
@@ -179,17 +179,17 @@ export const OrganizationSetupModal: React.FC<Props> = ({
             <button
               type="submit"
               disabled={isSubmitting || !name.trim()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-brand-black text-xs font-bold transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#111113] hover:bg-[#222226] text-white text-xs font-semibold transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-black" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#77C614]" />
                   <span>Creating Workspace...</span>
                 </>
               ) : (
                 <>
                   <span>Create Workspace</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5 text-[#77C614]" />
                 </>
               )}
             </button>

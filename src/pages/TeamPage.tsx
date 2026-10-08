@@ -3,6 +3,7 @@ import {
   Users,
   Shield,
   UserPlus,
+  Plus,
   Loader2,
   AlertCircle,
   CheckCircle2,
@@ -277,9 +278,9 @@ export const TeamPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowInviteModal(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-brand-primary hover:bg-brand-primary-hover text-brand-black transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#111113] hover:bg-[#222226] text-white transition-colors shadow-xs cursor-pointer"
             >
-              <UserPlus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4 text-[#77C614]" />
               <span>Invite Member</span>
             </button>
           </div>

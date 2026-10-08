@@ -287,12 +287,12 @@ CREATE POLICY "Allow owners update org"
             <button
               type="submit"
               disabled={profileSaving || !fullName.trim() || fullName.trim() === profile?.full_name}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-brand-black transition-colors cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-[#111113] hover:bg-[#222226] text-white transition-colors cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {profileSaving ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Save className="w-3.5 h-3.5" />
+                <Save className="w-3.5 h-3.5 text-[#77C614]" />
               )}
               <span>{profileSaving ? 'Saving...' : 'Save Profile'}</span>
             </button>
@@ -432,12 +432,12 @@ CREATE POLICY "Allow owners update org"
                     orgIndustry === currentOrg?.industry &&
                     orgTeamSize === currentOrg?.team_size)
                 }
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-brand-black transition-colors cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold rounded-xl bg-[#111113] hover:bg-[#222226] text-white transition-colors cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {orgSaving ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <Save className="w-3.5 h-3.5" />
+                  <Save className="w-3.5 h-3.5 text-[#77C614]" />
                 )}
                 <span>{orgSaving ? 'Saving Changes...' : 'Save Organization'}</span>
               </button>

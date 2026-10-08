@@ -9,6 +9,14 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { TasksPage } from './pages/TasksPage';
 import { TeamPage } from './pages/TeamPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ClientsPage } from './pages/ClientsPage';
+import { DesignsPage } from './pages/DesignsPage';
+import { FinancePage } from './pages/FinancePage';
+import { VendorsPage } from './pages/VendorsPage';
+import { InventoryPage } from './pages/InventoryPage';
+import { StaffPage } from './pages/StaffPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { CalendarPage } from './pages/CalendarPage';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { OrganizationSetupModal } from './components/modals/OrganizationSetupModal';
 import { MissingEnvErrorScreen } from './components/MissingEnvErrorScreen';
@@ -45,6 +53,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+const OwnerAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentMemberRole, isDemoMode } = useAuth();
+  const isOwnerOrAdmin = currentMemberRole === 'owner' || currentMemberRole === 'admin' || isDemoMode;
+  if (!isOwnerOrAdmin) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+};
+
 export default function App() {
   const [demoBypass, setDemoBypass] = useState(false);
   const isConfigured = isSupabaseConfigured();
@@ -70,8 +87,23 @@ export default function App() {
               }
             >
               <Route index element={<DashboardPage />} />
+              <Route path="clients" element={<ClientsPage />} />
               <Route path="projects" element={<ProjectsPage />} />
+              <Route path="designs" element={<DesignsPage />} />
+              <Route
+                path="finance"
+                element={
+                  <OwnerAdminRoute>
+                    <FinancePage />
+                  </OwnerAdminRoute>
+                }
+              />
+              <Route path="vendors" element={<VendorsPage />} />
+              <Route path="inventory" element={<InventoryPage />} />
+              <Route path="staff" element={<StaffPage />} />
+              <Route path="reports" element={<ReportsPage />} />
               <Route path="tasks" element={<TasksPage />} />
+              <Route path="calendar" element={<CalendarPage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
