@@ -19,7 +19,6 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
 import { OrganizationMember, Profile, MemberRole, Invitation } from '../types/database';
-import { DEMO_TEAM_MEMBERS, DEMO_INVITATIONS } from '../lib/mockData';
 import { InviteMemberModal } from '../components/modals/InviteMemberModal';
 import { ConfirmModal } from '../components/modals/ConfirmModal';
 

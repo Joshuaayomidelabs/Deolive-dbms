@@ -26,8 +26,6 @@ import {
   Check,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { RLSErrorModal } from '../modals/RLSErrorModal';
-import { SupabaseConfigModal } from '../modals/SupabaseConfigModal';
 import { OrganizationSetupModal } from '../modals/OrganizationSetupModal';
 import { AIAssistantDrawer } from '../AIAssistantDrawer';
 
@@ -41,15 +39,12 @@ export const AppLayout: React.FC = () => {
     signOut,
     switchOrganization,
     isDemoMode,
-    isConfigured,
-    rlsError,
   } = useAuth();
 
   const navigate = useNavigate();
   const location = useLocation();
 
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
   const [showNewOrgModal, setShowNewOrgModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -200,37 +195,6 @@ export const AppLayout: React.FC = () => {
         })}
       </nav>
 
-      {/* Diagnostic & Database Status (owners and admins only) */}
-      {isOwnerOrAdmin && (
-        <div className="p-3 border-t border-[#18181C] space-y-1.5">
-          {rlsError && (
-            <div className="p-2 rounded-xl bg-amber-950/60 border border-amber-800/50 text-amber-300 text-[11px] flex items-center justify-between">
-              <span className="flex items-center gap-1.5 truncate">
-                <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                RLS Policy
-              </span>
-              <span className="underline cursor-pointer font-medium">Review</span>
-            </div>
-          )}
-
-          <button
-            onClick={() => {
-              setShowConfigModal(true);
-              setMobileMenuOpen(false);
-            }}
-            className="w-full flex items-center justify-between p-2 rounded-xl bg-[#141417] hover:bg-[#1C1C20] text-stone-400 hover:text-stone-200 transition-colors text-xs border border-[#202026]"
-          >
-            <span className="flex items-center gap-2">
-              <Database className="w-3.5 h-3.5 text-[#77C614]" />
-              <span>Database Connection</span>
-            </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black text-[#77C614] border border-[#77C614]/30">
-              {isConfigured ? 'CONNECTED' : 'LOCAL'}
-            </span>
-          </button>
-        </div>
-      )}
-
       {/* Footer Profile & Settings */}
       <div className="p-3 border-t border-[#18181C] space-y-1">
         <NavLink
@@ -361,14 +325,7 @@ export const AppLayout: React.FC = () => {
       {/* Floating AI Button & Assistant Drawer */}
       <AIAssistantDrawer />
 
-      {/* Global Modals (Owners and Admins Only) */}
-      {isOwnerOrAdmin && <RLSErrorModal />}
-      {isOwnerOrAdmin && (
-        <SupabaseConfigModal
-          isOpen={showConfigModal}
-          onClose={() => setShowConfigModal(false)}
-        />
-      )}
+      {/* Global Modals */}
       <OrganizationSetupModal
         isOpen={showNewOrgModal}
         onClose={() => setShowNewOrgModal(false)}

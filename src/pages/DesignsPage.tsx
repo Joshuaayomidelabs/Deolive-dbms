@@ -49,131 +49,6 @@ interface DisplayDesign {
   imageBgGradient?: string;
 }
 
-export const DESIGNS_SETUP_SQL = `-- ================================================================
--- De-Olive DBMS - Designs Table & Supabase Storage Setup
--- Run this in your Supabase Dashboard > SQL Editor
--- ================================================================
-
--- 1. Create the 'designs' table
-CREATE TABLE IF NOT EXISTS public.designs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
-  name TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('Mood Board', '3D Render', 'Floor Plan', 'Other')),
-  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved')),
-  file_path TEXT NOT NULL,
-  file_url TEXT,
-  uploaded_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
--- 2. Create performance indexes
-CREATE INDEX IF NOT EXISTS idx_designs_org_id ON public.designs(organization_id);
-CREATE INDEX IF NOT EXISTS idx_designs_project_id ON public.designs(project_id);
-CREATE INDEX IF NOT EXISTS idx_designs_created_at ON public.designs(created_at DESC);
-
--- 3. Enable Row Level Security (RLS) on 'designs'
-ALTER TABLE public.designs ENABLE ROW LEVEL SECURITY;
-
--- 4. RLS policies on 'designs' table
-DROP POLICY IF EXISTS "Allow members read designs" ON public.designs;
-CREATE POLICY "Allow members read designs"
-  ON public.designs FOR SELECT TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Allow members create designs" ON public.designs;
-CREATE POLICY "Allow members create designs"
-  ON public.designs FOR INSERT TO authenticated
-  WITH CHECK (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Allow members update designs" ON public.designs;
-CREATE POLICY "Allow members update designs"
-  ON public.designs FOR UPDATE TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
-    )
-  );
-
--- Only owners and admins may delete design records
-DROP POLICY IF EXISTS "Allow members delete designs" ON public.designs;
-DROP POLICY IF EXISTS "Allow owners and admins delete designs" ON public.designs;
-CREATE POLICY "Allow owners and admins delete designs"
-  ON public.designs FOR DELETE TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
-
--- 5. Create private Storage Bucket 'designs'
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'designs',
-  'designs',
-  false,
-  10485760, -- 10MB
-  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
-)
-ON CONFLICT (id) DO UPDATE SET public = false;
-
--- 6. Storage RLS Policies
-DROP POLICY IF EXISTS "Allow members view design files" ON storage.objects;
-CREATE POLICY "Allow members view design files"
-ON storage.objects FOR SELECT TO authenticated
-USING (
-  bucket_id = 'designs' AND
-  (storage.foldername(name))[1] IN (
-    SELECT organization_id::text FROM public.organization_members WHERE user_id = auth.uid()
-  )
-);
-
-DROP POLICY IF EXISTS "Allow members upload design files" ON storage.objects;
-CREATE POLICY "Allow members upload design files"
-ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (
-  bucket_id = 'designs' AND
-  (storage.foldername(name))[1] IN (
-    SELECT organization_id::text FROM public.organization_members WHERE user_id = auth.uid()
-  )
-);
-
-DROP POLICY IF EXISTS "Allow members update design files" ON storage.objects;
-CREATE POLICY "Allow members update design files"
-ON storage.objects FOR UPDATE TO authenticated
-USING (
-  bucket_id = 'designs' AND
-  (storage.foldername(name))[1] IN (
-    SELECT organization_id::text FROM public.organization_members WHERE user_id = auth.uid()
-  )
-);
-
--- Only owners and admins may delete storage objects in designs bucket
-DROP POLICY IF EXISTS "Allow members delete design files" ON storage.objects;
-DROP POLICY IF EXISTS "Allow owners and admins delete design files" ON storage.objects;
-CREATE POLICY "Allow owners and admins delete design files"
-ON storage.objects FOR DELETE TO authenticated
-USING (
-  bucket_id = 'designs' AND
-  (storage.foldername(name))[1] IN (
-    SELECT organization_id::text FROM public.organization_members
-    WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-  )
-);`;
-
 export const DesignsPage: React.FC = () => {
   const { currentOrg, user, currentMemberRole, isDemoMode, reportRLSError } = useAuth();
   const { showToast } = useToast();
@@ -210,10 +85,6 @@ export const DesignsPage: React.FC = () => {
   // Delete modal state
   const [designToDelete, setDesignToDelete] = useState<DisplayDesign | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // SQL Helper Modal state
-  const [showSqlModal, setShowSqlModal] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -445,12 +316,7 @@ export const DesignsPage: React.FC = () => {
         });
 
       if (uploadError) {
-        const errorMsg = uploadError.message || '';
-        if (errorMsg.includes('Bucket not found') || errorMsg.includes('does not exist')) {
-          setTableExists(false);
-          throw new Error('Supabase Storage bucket "designs" does not exist yet. Please run the SQL schema script in your Supabase SQL editor.');
-        }
-        throw new Error(`Storage upload failed: ${uploadError.message}`);
+        throw new Error('Something went wrong, please try again.');
       }
 
       // 2. Generate initial signed URL for preview
@@ -475,10 +341,7 @@ export const DesignsPage: React.FC = () => {
         .single();
 
       if (insertError) {
-        if (isRLSError(insertError)) {
-          reportRLSError('designs', 'INSERT', insertError);
-        }
-        throw new Error(`Database record creation failed: ${insertError.message}`);
+        throw new Error('Something went wrong, please try again.');
       }
 
       // Update state
@@ -486,11 +349,11 @@ export const DesignsPage: React.FC = () => {
         setSignedUrls((prev) => ({ ...prev, [recordData.id]: signedData.signedUrl }));
       }
       setRealDesigns([recordData, ...realDesigns]);
-      showToast(`Asset "${recordData.name}" uploaded and saved to Supabase.`, 'success');
+      showToast(`Asset "${recordData.name}" saved successfully.`, 'success');
       setShowUploadModal(false);
-    } catch (err: any) {
-      setModalError(err.message || 'An error occurred during upload.');
-      showToast(err.message || 'Upload failed.', 'error');
+    } catch {
+      setModalError('Something went wrong, please try again.');
+      showToast('Something went wrong, please try again.', 'error');
     } finally {
       setUploadProgress(false);
     }
@@ -527,7 +390,7 @@ export const DesignsPage: React.FC = () => {
         if (isRLSError(error)) {
           reportRLSError('designs', 'UPDATE', error);
         }
-        showToast(`Failed to update status: ${error.message}`, 'error');
+        showToast('Something went wrong, please try again.', 'error');
       } else {
         setRealDesigns(realDesigns.map((d) => (d.id === item.id ? data : d)));
         showToast(`Design marked as ${nextStatus}.`, 'success');
@@ -567,22 +430,19 @@ export const DesignsPage: React.FC = () => {
         .eq('id', designToDelete.id);
 
       if (dbError) {
-        if (isRLSError(dbError)) {
-          reportRLSError('designs', 'DELETE', dbError);
-        }
-        showToast(`Failed to delete record: ${dbError.message}`, 'error');
+        showToast('Something went wrong, please try again.', 'error');
         return;
       }
 
-      // 2. Delete file from Supabase storage
+      // 2. Delete file from storage
       if (designToDelete.filePath) {
         await supabase.storage.from('designs').remove([designToDelete.filePath]);
       }
 
       setRealDesigns(realDesigns.filter((d) => d.id !== designToDelete.id));
-      showToast(`Asset "${designToDelete.name}" deleted from database and storage.`, 'info');
+      showToast(`Asset "${designToDelete.name}" deleted successfully.`, 'info');
     } catch {
-      showToast('An unexpected error occurred while deleting.', 'error');
+      showToast('Something went wrong, please try again.', 'error');
     } finally {
       setIsDeleting(false);
       setDesignToDelete(null);
@@ -623,16 +483,9 @@ export const DesignsPage: React.FC = () => {
       URL.revokeObjectURL(blobUrl);
 
       showToast(`File download complete.`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Failed to download file.', 'error');
+    } catch {
+      showToast('Failed to download file. Please try again.', 'error');
     }
-  };
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(DESIGNS_SETUP_SQL);
-    setCopiedSql(true);
-    showToast('Supabase SQL copied to clipboard.', 'success');
-    setTimeout(() => setCopiedSql(false), 2500);
   };
 
   return (
@@ -649,17 +502,6 @@ export const DesignsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          {isOwnerOrAdmin && (
-            <button
-              onClick={() => setShowSqlModal(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              title="View Database Schema and Storage SQL"
-            >
-              <Code2 className="w-3.5 h-3.5 text-[#5FA20D]" />
-              <span>Database SQL</span>
-            </button>
-          )}
-
           <button
             onClick={handleOpenUploadModal}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#111113] hover:bg-[#222226] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
@@ -669,27 +511,6 @@ export const DesignsPage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Database/Storage Notice if table or bucket doesn't exist (owners and admins only) */}
-      {!tableExists && !isDemoMode && isOwnerOrAdmin && (
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900">
-          <div className="flex items-start gap-2.5">
-            <Database className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-950">Designs Database Table & Storage Setup Needed</p>
-              <p className="text-amber-800 text-[11px] mt-0.5">
-                Run the quick SQL script in your database to provision the table, storage bucket, and policies.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowSqlModal(true)}
-            className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs shrink-0 cursor-pointer transition-colors"
-          >
-            View SQL Script
-          </button>
-        </div>
-      )}
 
       {/* Search and Type Filter Card (Shown when designs exist) */}
       {realDesigns.length > 0 && (
@@ -1069,13 +890,6 @@ export const DesignsPage: React.FC = () => {
                       {p.name}
                     </option>
                   ))}
-                  {projects.length === 0 && (
-                    <>
-                      <option value="proj-1">Villa Al-Khobar Renovation (Sample)</option>
-                      <option value="proj-2">Sheikh Saud Private Estate (Sample)</option>
-                      <option value="proj-3">TechStart Regional HQ (Sample)</option>
-                    </>
-                  )}
                 </select>
               </div>
 
@@ -1197,69 +1011,13 @@ export const DesignsPage: React.FC = () => {
       <ConfirmModal
         isOpen={Boolean(designToDelete)}
         title="Delete Design Asset"
-        message={`Are you sure you want to delete "${designToDelete?.name}"? The database record and the uploaded file in Supabase Storage will both be permanently deleted.`}
+        message={`Are you sure you want to delete "${designToDelete?.name}"? The record and associated file will both be permanently deleted.`}
         confirmLabel="Delete Asset"
         variant="danger"
         isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDesignToDelete(null)}
       />
-
-      {/* SQL Script View Modal */}
-      {showSqlModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-[#5FA20D]" />
-                <h3 className="text-sm font-bold text-stone-900">Supabase SQL Schema & Storage for "designs"</h3>
-              </div>
-              <button
-                onClick={() => setShowSqlModal(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-stone-600 mt-3">
-              Paste and run this in your{' '}
-              <span className="font-semibold text-stone-800">Supabase Dashboard &gt; SQL Editor</span>. It creates the table, creates the private storage bucket, and configures Row Level Security (RLS) policies for both the table and storage objects.
-            </p>
-
-            <div className="mt-3 relative">
-              <pre className="bg-stone-900 text-stone-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto max-h-72 leading-relaxed border border-stone-800">
-                {DESIGNS_SETUP_SQL}
-              </pre>
-              <button
-                onClick={handleCopySql}
-                className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                {copiedSql ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-[#77C614]" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy SQL</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-stone-100 flex justify-end">
-              <button
-                onClick={() => setShowSqlModal(false)}
-                className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

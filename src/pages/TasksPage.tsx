@@ -24,7 +24,6 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
 import { Task, TaskStatus, TaskPriority, Project, Profile } from '../types/database';
-import { DEMO_PROJECTS, DEMO_TASKS, DEMO_TEAM_MEMBERS } from '../lib/mockData';
 import { ConfirmModal } from '../components/modals/ConfirmModal';
 
 const STATUS_COLUMNS: { id: TaskStatus; title: string; countColor: string }[] = [
@@ -78,25 +77,6 @@ export const TasksPage: React.FC = () => {
 
   const fetchWorkspaceData = async () => {
     if (!currentOrg) return;
-
-    if (isDemoMode) {
-      setProjects(DEMO_PROJECTS);
-      setTasks(DEMO_TASKS);
-      const map: Record<string, Profile> = {};
-      DEMO_TEAM_MEMBERS.forEach((m) => {
-        map[m.user_id] = m.profile;
-      });
-      setProfilesMap(map);
-      setTeamMembers(
-        DEMO_TEAM_MEMBERS.map((m) => ({
-          id: m.id,
-          user_id: m.user_id,
-          full_name: m.profile.full_name || 'Member',
-        }))
-      );
-      setLoading(false);
-      return;
-    }
 
     setLoading(true);
     try {
@@ -808,7 +788,7 @@ export const TasksPage: React.FC = () => {
                   required
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="e.g. Audit connection pooling limits"
+                  placeholder="e.g. Finalize architectural blueprints"
                   className="w-full px-3 py-2 border border-stone-200 rounded-lg bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary transition-colors text-xs"
                   autoFocus
                 />

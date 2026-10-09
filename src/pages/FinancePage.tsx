@@ -43,246 +43,6 @@ export const CURRENCY_CONFIG: Record<CurrencyCode, { symbol: string; label: stri
   EUR: { symbol: '€', label: 'EUR (€)', prefix: '€' },
 };
 
-export const FINANCE_SETUP_SQL = `-- ================================================================
--- De-Olive DBMS - Invoices & Transactions Tables Setup
--- Run this script in your Supabase Dashboard > SQL Editor.
--- Restricts read/write access to organization owners and admins.
--- ================================================================
-
--- 1. Create 'invoices' table
-CREATE TABLE IF NOT EXISTS public.invoices (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
-  client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
-  invoice_number TEXT NOT NULL,
-  amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
-  status TEXT NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Sent', 'Paid', 'Overdue')),
-  issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  due_date DATE NOT NULL,
-  notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
--- 2. Indexes for 'invoices'
-CREATE INDEX IF NOT EXISTS idx_invoices_org_id ON public.invoices(organization_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON public.invoices(client_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_project_id ON public.invoices(project_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON public.invoices(created_at DESC);
-
--- 3. Enable Row Level Security (RLS) on 'invoices'
-ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
-
--- 4. RLS for 'invoices': Only owners and admins
-CREATE POLICY "Allow owners and admins to read invoices"
-  ON public.invoices FOR SELECT TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
-
-CREATE POLICY "Allow owners and admins to create invoices"
-  ON public.invoices FOR INSERT TO authenticated
-  WITH CHECK (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
-
-CREATE POLICY "Allow owners and admins to update invoices"
-  ON public.invoices FOR UPDATE TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
-
-CREATE POLICY "Allow owners and admins to delete invoices"
-  ON public.invoices FOR DELETE TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
-
--- 5. Create 'transactions' table
-CREATE TABLE IF NOT EXISTS public.transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
-  invoice_id UUID REFERENCES public.invoices(id) ON DELETE SET NULL,
-  description TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('Income', 'Expense')),
-  category TEXT NOT NULL,
-  amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
-  transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
--- 6. Indexes for 'transactions'
-CREATE INDEX IF NOT EXISTS idx_transactions_org_id ON public.transactions(organization_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_project_id ON public.transactions(project_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_invoice_id ON public.transactions(invoice_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions(transaction_date DESC);
-
--- 7. Enable Row Level Security (RLS) on 'transactions'
-ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-
--- 8. RLS for 'transactions': Only owners and admins
-CREATE POLICY "Allow owners and admins to read transactions"
-  ON public.transactions FOR SELECT TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
-
-CREATE POLICY "Allow owners and admins to create transactions"
-  ON public.transactions FOR INSERT TO authenticated
-  WITH CHECK (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
-
-CREATE POLICY "Allow owners and admins to update transactions"
-  ON public.transactions FOR UPDATE TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
-
-CREATE POLICY "Allow owners and admins to delete transactions"
-  ON public.transactions FOR DELETE TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );`;
-
-// Realistic Sample Fallback Data (only shown when organization has 0 records)
-interface SampleTx {
-  id: string;
-  description: string;
-  projectName: string;
-  type: TransactionType;
-  category: string;
-  transaction_date: string;
-  amount: number;
-  isSample: true;
-}
-
-const SAMPLE_TRANSACTIONS: SampleTx[] = [
-  {
-    id: 'sample-tx-1',
-    description: 'Milestone 2 Design & Architecture Retainer',
-    projectName: 'Sheikh Saud Private Estate',
-    type: 'Income',
-    category: 'Client Invoicing',
-    transaction_date: '2026-10-06',
-    amount: 85000,
-    isSample: true,
-  },
-  {
-    id: 'sample-tx-2',
-    description: 'Italian Carrara Honed Marble Procurement Batch #1',
-    projectName: 'Villa Al-Khobar Renovation',
-    type: 'Expense',
-    category: 'Material Procurement',
-    transaction_date: '2026-10-04',
-    amount: 38400,
-    isSample: true,
-  },
-  {
-    id: 'sample-tx-3',
-    description: 'Phase 1 Concept Approval Final Settlement',
-    projectName: 'TechStart Regional HQ',
-    type: 'Income',
-    category: 'Client Invoicing',
-    transaction_date: '2026-10-01',
-    amount: 42000,
-    isSample: true,
-  },
-  {
-    id: 'sample-tx-4',
-    description: 'Milanese Luxury Textiles & Upholstery Deposit',
-    projectName: 'The Palm Penthouse',
-    type: 'Expense',
-    category: 'Material Procurement',
-    transaction_date: '2026-09-27',
-    amount: 16800,
-    isSample: true,
-  },
-  {
-    id: 'sample-tx-5',
-    description: 'Consultancy Retainer Fee Billing #INV-109',
-    projectName: 'Villa Al-Nakheel Oasis',
-    type: 'Income',
-    category: 'Consulting Retainer',
-    transaction_date: '2026-09-22',
-    amount: 22200,
-    isSample: true,
-  },
-];
-
-interface SampleInv {
-  id: string;
-  invoice_number: string;
-  clientName: string;
-  projectName: string;
-  amount: number;
-  status: InvoiceStatus;
-  issue_date: string;
-  due_date: string;
-  isSample: true;
-}
-
-const SAMPLE_INVOICES: SampleInv[] = [
-  {
-    id: 'sample-inv-1',
-    invoice_number: 'INV-0001',
-    clientName: 'Sheikh Saud Private Estate',
-    projectName: 'Sheikh Saud Private Estate',
-    amount: 85000,
-    status: 'Paid',
-    issue_date: '2026-09-15',
-    due_date: '2026-10-01',
-    isSample: true,
-  },
-  {
-    id: 'sample-inv-2',
-    invoice_number: 'INV-0002',
-    clientName: 'Al-Areen Luxury Boutique Resort',
-    projectName: 'Al-Areen Resort Expansion',
-    amount: 34500,
-    status: 'Sent',
-    issue_date: '2026-09-28',
-    due_date: '2026-10-28',
-    isSample: true,
-  },
-  {
-    id: 'sample-inv-3',
-    invoice_number: 'INV-0003',
-    clientName: 'TechStart Regional Headquarters',
-    projectName: 'TechStart Regional HQ',
-    amount: 29700,
-    status: 'Overdue',
-    issue_date: '2026-08-10',
-    due_date: '2026-09-10',
-    isSample: true,
-  },
-];
-
 export const FinancePage: React.FC = () => {
   const { currentOrg, currentMemberRole, isDemoMode, reportRLSError } = useAuth();
   const { showToast } = useToast();
@@ -306,8 +66,6 @@ export const FinancePage: React.FC = () => {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showAllTransactionsModal, setShowAllTransactionsModal] = useState(false);
   const [showInvoicesLedgerModal, setShowInvoicesLedgerModal] = useState(false);
-  const [showSqlModal, setShowSqlModal] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
 
   // New Invoice Form state
   const [invClientId, setInvClientId] = useState('');
@@ -437,36 +195,24 @@ export const FinancePage: React.FC = () => {
     fetchData();
   }, [currentOrg, isDemoMode]);
 
-  // Determine if using sample data: only when there are no records in the organization
-  const hasNoRealData = invoices.length === 0 && transactions.length === 0;
-
   // Real calculations
   const currentYear = new Date().getFullYear();
 
   // Helper to check if invoice is past due
-  const isInvoicePastDue = (inv: Invoice | SampleInv) => {
+  const isInvoicePastDue = (inv: Invoice) => {
     if (inv.status === 'Paid') return false;
     const dueTime = new Date(inv.due_date).getTime();
     const todayTime = new Date().setHours(0, 0, 0, 0);
     return dueTime < todayTime;
   };
 
-  const getEffectiveStatus = (inv: Invoice | SampleInv): InvoiceStatus => {
+  const getEffectiveStatus = (inv: Invoice): InvoiceStatus => {
     if (inv.status === 'Paid') return 'Paid';
     if (isInvoicePastDue(inv)) return 'Overdue';
     return inv.status;
   };
 
   const metrics = useMemo(() => {
-    if (hasNoRealData) {
-      return {
-        revenueYtd: 149200,
-        outstanding: 64200,
-        outstandingCount: 2,
-        expensesYtd: 55200,
-      };
-    }
-
     // 1. Total Revenue (YTD) = sum of Income transactions this year
     const incomeThisYear = transactions
       .filter((t) => {
@@ -498,13 +244,10 @@ export const FinancePage: React.FC = () => {
       outstandingCount: outstandingInvs.length,
       expensesYtd: expensesThisYear,
     };
-  }, [hasNoRealData, transactions, invoices, currentYear]);
+  }, [transactions, invoices, currentYear]);
 
   // Display transactions (latest 10 on dashboard)
   const displayTransactions = useMemo(() => {
-    if (hasNoRealData) {
-      return SAMPLE_TRANSACTIONS;
-    }
     return transactions.slice(0, 10).map((t) => ({
       id: t.id,
       description: t.description,
@@ -513,9 +256,8 @@ export const FinancePage: React.FC = () => {
       category: t.category,
       transaction_date: t.transaction_date,
       amount: Number(t.amount),
-      isSample: false,
     }));
-  }, [hasNoRealData, transactions]);
+  }, [transactions]);
 
   // Generate Next Invoice Number
   const nextInvoiceNumber = useMemo(() => {
@@ -602,7 +344,7 @@ export const FinancePage: React.FC = () => {
         if (isRLSError(error)) {
           reportRLSError('invoices', 'INSERT', error);
         }
-        setInvError(error.message);
+        setInvError('Something went wrong, please try again.');
       } else {
         setInvoices([data, ...invoices]);
         showToast(`Invoice ${data.invoice_number} created successfully.`, 'success');
@@ -667,7 +409,7 @@ export const FinancePage: React.FC = () => {
         if (isRLSError(error)) {
           reportRLSError('transactions', 'INSERT', error);
         }
-        setTxError(error.message);
+        setTxError('Something went wrong, please try again.');
       } else {
         setTransactions([data, ...transactions]);
         showToast(`${data.type} of ${formatAmount(Number(data.amount))} recorded.`, 'success');
@@ -681,13 +423,8 @@ export const FinancePage: React.FC = () => {
   };
 
   // Mark invoice as paid: updates invoice to 'Paid' AND creates Income transaction
-  const handleMarkAsPaid = async (inv: Invoice | SampleInv) => {
-    if ('isSample' in inv && inv.isSample) {
-      showToast('Sample invoices cannot be marked as paid in the database.', 'info');
-      return;
-    }
-
-    const realInv = inv as Invoice;
+  const handleMarkAsPaid = async (inv: Invoice) => {
+    const realInv = inv;
     if (!currentOrg) return;
 
     try {
@@ -732,7 +469,7 @@ export const FinancePage: React.FC = () => {
 
       if (updateErr) {
         if (isRLSError(updateErr)) reportRLSError('invoices', 'UPDATE', updateErr);
-        showToast(`Failed to update invoice: ${updateErr.message}`, 'error');
+        showToast('Something went wrong, please try again.', 'error');
         return;
       }
 
@@ -770,15 +507,13 @@ export const FinancePage: React.FC = () => {
 
   // Export to CSV
   const handleExportCSV = () => {
-    const listToExport = hasNoRealData ? SAMPLE_TRANSACTIONS : transactions;
-
-    if (listToExport.length === 0) {
-      showToast('No transaction data to export.', 'info');
+    if (transactions.length === 0) {
+      showToast('No transactions to export.', 'info');
       return;
     }
 
     const headers = ['Date', 'Description', 'Type', 'Category', 'Project', `Amount (${currency})`];
-    const rows = listToExport.map((t: any) => [
+    const rows = transactions.map((t: any) => [
       `"${t.transaction_date}"`,
       `"${(t.description || '').replace(/"/g, '""')}"`,
       `"${t.type}"`,
@@ -799,13 +534,6 @@ export const FinancePage: React.FC = () => {
     URL.revokeObjectURL(url);
 
     showToast('Financial ledger exported to CSV format.', 'success');
-  };
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(FINANCE_SETUP_SQL);
-    setCopiedSql(true);
-    showToast('Supabase SQL copied to clipboard.', 'success');
-    setTimeout(() => setCopiedSql(false), 2500);
   };
 
   return (
@@ -842,15 +570,6 @@ export const FinancePage: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setShowSqlModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-            title="View Supabase Schema SQL"
-          >
-            <Code2 className="w-3.5 h-3.5 text-[#5FA20D]" />
-            <span>Supabase SQL</span>
-          </button>
-
-          <button
             onClick={handleExportCSV}
             className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-stone-200 text-stone-800 text-xs font-semibold shadow-xs hover:bg-stone-50 transition-colors cursor-pointer"
           >
@@ -876,54 +595,13 @@ export const FinancePage: React.FC = () => {
         </div>
       </div>
 
-      {/* SQL Setup Notice if table does not exist */}
-      {!tableExists && !isDemoMode && (
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900">
-          <div className="flex items-start gap-2.5">
-            <Database className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-950">Supabase "invoices" & "transactions" Tables Required</p>
-              <p className="text-amber-800 text-[11px] mt-0.5">
-                Run the SQL script in your Supabase SQL Editor to provision both tables with owner/admin Row Level Security.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowSqlModal(true)}
-            className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs shrink-0 cursor-pointer transition-colors"
-          >
-            View SQL Script
-          </button>
-        </div>
-      )}
-
       {/* Role permission notification for regular members */}
       {!isOwnerOrAdmin && !isDemoMode && (
         <div className="p-3.5 rounded-xl bg-stone-100 border border-stone-200 flex items-center gap-2.5 text-xs text-stone-700">
           <Lock className="w-4 h-4 text-stone-500 shrink-0" />
           <span>
-            You are currently signed in as a <strong className="font-semibold">{currentMemberRole}</strong>. In accordance with Row Level Security, financial records are restricted to organization owners and admins.
+            You are currently signed in as a <strong className="font-semibold">{currentMemberRole}</strong>. Financial records and ledgers are restricted to organization owners and administrators.
           </span>
-        </div>
-      )}
-
-      {/* Sample Data Banner when organization has no records */}
-      {hasNoRealData && !loading && (
-        <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-between gap-3 text-xs text-sky-900">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-sky-600 shrink-0" />
-            <span>
-              <strong className="font-semibold">Sample Data:</strong> No invoices or ledger transactions have been recorded in this organization yet. Click{' '}
-              <strong className="font-semibold text-stone-900">"+ New Invoice"</strong> or <strong className="font-semibold text-stone-900">"+ Add Transaction"</strong> to start recording real cash flow.
-            </span>
-          </div>
-          <button
-            onClick={handleOpenInvoiceModal}
-            className="hidden sm:inline-flex items-center gap-1 px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white font-medium text-[11px] rounded-lg cursor-pointer transition-colors shrink-0"
-          >
-            <Plus className="w-3 h-3" />
-            Create First Invoice
-          </button>
         </div>
       )}
 
@@ -1006,114 +684,125 @@ export const FinancePage: React.FC = () => {
               onClick={() => setShowInvoicesLedgerModal(true)}
               className="text-xs font-bold text-[#5FA20D] hover:underline cursor-pointer"
             >
-              All Invoices ({hasNoRealData ? SAMPLE_INVOICES.length : invoices.length})
+              All Invoices ({invoices.length})
             </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[640px]">
-            <thead>
-              <tr className="bg-[#F4F4F6] border-b border-[#EEEEF2]">
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
-                  INVOICE #
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
-                  CLIENT / PROJECT
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
-                  DUE DATE
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
-                  STATUS
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5 text-right">
-                  AMOUNT
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5 text-right">
-                  ACTION
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#EEEEF2] text-xs">
-              {(hasNoRealData ? SAMPLE_INVOICES : invoices.slice(0, 5)).map((inv: any) => {
-                const effectiveStatus = getEffectiveStatus(inv);
-                const isOverdue = effectiveStatus === 'Overdue';
-
-                return (
-                  <tr key={inv.id} className="hover:bg-stone-50/70 transition-colors">
-                    <td className="px-6 py-4 font-mono font-bold text-stone-900">
-                      {inv.invoice_number}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-semibold text-stone-900 leading-tight">
-                          {inv.client?.name || inv.clientName || 'General Client'}
-                        </p>
-                        <p className="text-[11px] text-stone-500 mt-0.5">
-                          {inv.project?.name || inv.projectName || 'General Architecture'}
-                        </p>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className={`w-3.5 h-3.5 ${isOverdue ? 'text-red-500' : 'text-stone-400'}`} />
-                        <span className={`font-mono ${isOverdue ? 'text-red-600 font-semibold' : 'text-stone-600'}`}>
-                          {inv.due_date}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                          effectiveStatus === 'Paid'
-                            ? 'badge-completed'
-                            : isOverdue
-                            ? 'bg-red-50 text-red-700 border border-red-200'
-                            : 'badge-concept'
-                        }`}
-                      >
-                        {effectiveStatus}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4 text-right font-mono font-bold text-stone-900">
-                      {formatAmount(Number(inv.amount))}
-                    </td>
-
-                    <td className="px-6 py-4 text-right">
-                      {effectiveStatus !== 'Paid' ? (
-                        <button
-                          onClick={() => handleMarkAsPaid(inv)}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Mark Paid</span>
-                        </button>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-emerald-700 flex items-center justify-end gap-1">
-                          <Check className="w-3.5 h-3.5" />
-                          Settled
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {!hasNoRealData && invoices.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-stone-400">
-                    No invoices issued yet. Click "+ New Invoice" to generate one.
-                  </td>
+        {invoices.length === 0 ? (
+          <div className="p-12 text-center flex flex-col items-center justify-center space-y-3">
+            <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center text-stone-400">
+              <Receipt className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-stone-900">No invoices yet. Create your first invoice.</p>
+              <p className="text-xs text-stone-500 mt-0.5">Issue client invoices to track payments and project billings.</p>
+            </div>
+            <button
+              onClick={handleOpenInvoiceModal}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111113] hover:bg-[#222226] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-[#77C614]" />
+              <span>New Invoice</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[640px]">
+              <thead>
+                <tr className="bg-[#F4F4F6] border-b border-[#EEEEF2]">
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
+                    INVOICE #
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
+                    CLIENT / PROJECT
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
+                    DUE DATE
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
+                    STATUS
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5 text-right">
+                    AMOUNT
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5 text-right">
+                    ACTION
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-[#EEEEF2] text-xs">
+                {invoices.slice(0, 5).map((inv: any) => {
+                  const effectiveStatus = getEffectiveStatus(inv);
+                  const isOverdue = effectiveStatus === 'Overdue';
+
+                  return (
+                    <tr key={inv.id} className="hover:bg-stone-50/70 transition-colors">
+                      <td className="px-6 py-4 font-mono font-bold text-stone-900">
+                        {inv.invoice_number}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-semibold text-stone-900 leading-tight">
+                            {inv.client?.name || 'General Client'}
+                          </p>
+                          <p className="text-[11px] text-stone-500 mt-0.5">
+                            {inv.project?.name || 'General Architecture'}
+                          </p>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className={`w-3.5 h-3.5 ${isOverdue ? 'text-red-500' : 'text-stone-400'}`} />
+                          <span className={`font-mono ${isOverdue ? 'text-red-600 font-semibold' : 'text-stone-600'}`}>
+                            {inv.due_date}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                            effectiveStatus === 'Paid'
+                              ? 'badge-completed'
+                              : isOverdue
+                              ? 'bg-red-50 text-red-700 border border-red-200'
+                              : 'badge-concept'
+                          }`}
+                        >
+                          {effectiveStatus}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4 text-right font-mono font-bold text-stone-900">
+                        {formatAmount(Number(inv.amount))}
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        {effectiveStatus !== 'Paid' ? (
+                          <button
+                            onClick={() => handleMarkAsPaid(inv)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Mark Paid</span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-emerald-700 flex items-center justify-end gap-1">
+                            <Check className="w-3.5 h-3.5" />
+                            Settled
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Recent Transactions Card */}
@@ -1128,92 +817,103 @@ export const FinancePage: React.FC = () => {
             onClick={() => setShowAllTransactionsModal(true)}
             className="text-xs font-bold text-[#5FA20D] hover:underline cursor-pointer"
           >
-            View All ({hasNoRealData ? SAMPLE_TRANSACTIONS.length : transactions.length})
+            View All ({transactions.length})
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[640px]">
-            <thead>
-              <tr className="bg-[#F4F4F6] border-b border-[#EEEEF2]">
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
-                  DESCRIPTION
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
-                  CATEGORY
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
-                  TYPE
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
-                  DATE
-                </th>
-                <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5 text-right">
-                  AMOUNT
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#EEEEF2] text-xs">
-              {displayTransactions.map((tx: any) => (
-                <tr key={tx.id} className="hover:bg-stone-50/70 transition-colors">
-                  {/* DESCRIPTION */}
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="font-bold text-stone-900 text-sm leading-tight">
-                        {tx.description}
-                      </p>
-                      <span className="text-[11px] text-stone-400 mt-0.5 block font-medium">
-                        Project: {tx.projectName}
+        {transactions.length === 0 ? (
+          <div className="p-12 text-center flex flex-col items-center justify-center space-y-3">
+            <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center text-stone-400">
+              <DollarSign className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-stone-900">No transactions yet.</p>
+              <p className="text-xs text-stone-500 mt-0.5">Record income and project expenses to track cash flow.</p>
+            </div>
+            <button
+              onClick={() => handleOpenTransactionModal('Expense')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-50 text-stone-900 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-stone-600" />
+              <span>Add Transaction</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[640px]">
+              <thead>
+                <tr className="bg-[#F4F4F6] border-b border-[#EEEEF2]">
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
+                    DESCRIPTION
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
+                    CATEGORY
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
+                    TYPE
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5">
+                    DATE
+                  </th>
+                  <th className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase px-6 py-3.5 text-right">
+                    AMOUNT
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#EEEEF2] text-xs">
+                {displayTransactions.map((tx: any) => (
+                  <tr key={tx.id} className="hover:bg-stone-50/70 transition-colors">
+                    {/* DESCRIPTION */}
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-bold text-stone-900 text-sm leading-tight">
+                          {tx.description}
+                        </p>
+                        <span className="text-[11px] text-stone-400 mt-0.5 block font-medium">
+                          Project: {tx.projectName}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* CATEGORY */}
+                    <td className="px-6 py-4">
+                      <span className="text-stone-600 font-medium">
+                        {tx.category || 'General'}
                       </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* CATEGORY */}
-                  <td className="px-6 py-4">
-                    <span className="text-stone-600 font-medium">
-                      {tx.category || 'General'}
-                    </span>
-                  </td>
+                    {/* TYPE */}
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                          tx.type === 'Income' ? 'badge-completed' : 'badge-concept'
+                        }`}
+                      >
+                        {tx.type}
+                      </span>
+                    </td>
 
-                  {/* TYPE */}
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                        tx.type === 'Income' ? 'badge-completed' : 'badge-concept'
-                      }`}
-                    >
-                      {tx.type}
-                    </span>
-                  </td>
+                    {/* DATE */}
+                    <td className="px-6 py-4">
+                      <span className="text-stone-500 font-mono text-[11px]">{tx.transaction_date}</span>
+                    </td>
 
-                  {/* DATE */}
-                  <td className="px-6 py-4">
-                    <span className="text-stone-500 font-mono text-[11px]">{tx.transaction_date}</span>
-                  </td>
-
-                  {/* AMOUNT */}
-                  <td className="px-6 py-4 text-right">
-                    <span
-                      className={`font-mono font-bold text-sm tabular-nums ${
-                        tx.type === 'Income' ? 'text-emerald-700' : 'text-stone-900'
-                      }`}
-                    >
-                      {formatAmount(tx.amount, true, tx.type)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-
-              {!hasNoRealData && transactions.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-stone-400">
-                    No transactions recorded yet. Click "+ Add Transaction" to add expenses or payments.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    {/* AMOUNT */}
+                    <td className="px-6 py-4 text-right">
+                      <span
+                        className={`font-mono font-bold text-sm tabular-nums ${
+                          tx.type === 'Income' ? 'text-emerald-700' : 'text-stone-900'
+                        }`}
+                      >
+                        {formatAmount(tx.amount, true, tx.type)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* New Invoice Modal */}
@@ -1257,11 +957,7 @@ export const FinancePage: React.FC = () => {
                     </option>
                   ))}
                   {clients.length === 0 && (
-                    <>
-                      <option value="c-1">Sheikh Saud Private Estate (Sample)</option>
-                      <option value="c-2">Al-Areen Luxury Boutique Resort (Sample)</option>
-                      <option value="c-3">TechStart Regional Headquarters (Sample)</option>
-                    </>
+                    <option disabled value="">(No clients found. Add clients in Clients page)</option>
                   )}
                 </select>
               </div>
@@ -1279,13 +975,6 @@ export const FinancePage: React.FC = () => {
                       {p.name}
                     </option>
                   ))}
-                  {projects.length === 0 && (
-                    <>
-                      <option value="p-1">Villa Al-Khobar Renovation (Sample)</option>
-                      <option value="p-2">Sheikh Saud Private Estate (Sample)</option>
-                      <option value="p-3">TechStart Regional HQ (Sample)</option>
-                    </>
-                  )}
                 </select>
               </div>
 
@@ -1504,12 +1193,6 @@ export const FinancePage: React.FC = () => {
                       {p.name}
                     </option>
                   ))}
-                  {projects.length === 0 && (
-                    <>
-                      <option value="p-1">Villa Al-Khobar Renovation (Sample)</option>
-                      <option value="p-2">Sheikh Saud Private Estate (Sample)</option>
-                    </>
-                  )}
                 </select>
               </div>
 
@@ -1603,11 +1286,11 @@ export const FinancePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EEEEF2] text-xs">
-                  {(hasNoRealData ? SAMPLE_TRANSACTIONS : transactions)
+                  {transactions
                     .filter((t: any) => {
                       const matchesSearch =
                         t.description.toLowerCase().includes(txSearchTerm.toLowerCase()) ||
-                        (t.project?.name || t.projectName || '').toLowerCase().includes(txSearchTerm.toLowerCase());
+                        (t.project?.name || '').toLowerCase().includes(txSearchTerm.toLowerCase());
                       const matchesType = txTypeFilter === 'All' || t.type === txTypeFilter;
                       return matchesSearch && matchesType;
                     })
@@ -1619,7 +1302,7 @@ export const FinancePage: React.FC = () => {
                         <td className="px-4 py-3">
                           <p className="font-semibold text-stone-900">{t.description}</p>
                           <p className="text-[10px] text-stone-400">
-                            {t.project?.name || t.projectName || 'General'}
+                            {t.project?.name || 'General'}
                           </p>
                         </td>
                         <td className="px-4 py-3 text-stone-600">{t.category}</td>
@@ -1639,12 +1322,19 @@ export const FinancePage: React.FC = () => {
                         </td>
                       </tr>
                     ))}
+                  {transactions.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-stone-400">
+                        No transactions recorded yet.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             <div className="pt-4 flex justify-between items-center text-xs text-stone-500">
-              <span>Export or manage entries directly from Supabase</span>
+              <span>Export or manage entries directly from your ledger</span>
               <button
                 onClick={() => setShowAllTransactionsModal(false)}
                 className="px-4 py-2 rounded-xl bg-stone-900 text-white font-semibold hover:bg-stone-800 cursor-pointer"
@@ -1701,7 +1391,7 @@ export const FinancePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EEEEF2] text-xs">
-                  {(hasNoRealData ? SAMPLE_INVOICES : invoices).map((inv: any) => {
+                  {invoices.map((inv: any) => {
                     const effectiveStatus = getEffectiveStatus(inv);
                     const isOverdue = effectiveStatus === 'Overdue';
 
@@ -1711,10 +1401,10 @@ export const FinancePage: React.FC = () => {
                           {inv.invoice_number}
                         </td>
                         <td className="px-4 py-3 font-semibold text-stone-800">
-                          {inv.client?.name || inv.clientName || 'General Client'}
+                          {inv.client?.name || 'General Client'}
                         </td>
                         <td className="px-4 py-3 text-stone-500">
-                          {inv.project?.name || inv.projectName || '—'}
+                          {inv.project?.name || '—'}
                         </td>
                         <td className="px-4 py-3 font-mono text-[11px]">
                           <span className={isOverdue ? 'text-red-600 font-bold' : 'text-stone-600'}>
@@ -1752,6 +1442,13 @@ export const FinancePage: React.FC = () => {
                       </tr>
                     );
                   })}
+                  {invoices.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-stone-400">
+                        No invoices issued yet.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1762,62 +1459,6 @@ export const FinancePage: React.FC = () => {
                 className="px-4 py-2 rounded-xl bg-stone-900 text-white font-semibold hover:bg-stone-800 cursor-pointer text-xs"
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SQL Script View Modal */}
-      {showSqlModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-[#5FA20D]" />
-                <h3 className="text-sm font-bold text-stone-900">Supabase SQL: Invoices & Transactions</h3>
-              </div>
-              <button
-                onClick={() => setShowSqlModal(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-stone-600 mt-3">
-              Paste and run this in your{' '}
-              <span className="font-semibold text-stone-800">Supabase Dashboard &gt; SQL Editor</span>. It creates both the <code className="bg-stone-100 px-1 py-0.5 rounded text-stone-800">invoices</code> and <code className="bg-stone-100 px-1 py-0.5 rounded text-stone-800">transactions</code> tables, with Row Level Security restricting access to organization owners and admins (<code className="bg-stone-100 px-1 py-0.5 rounded text-stone-800">role IN ('owner', 'admin')</code>).
-            </p>
-
-            <div className="mt-3 relative">
-              <pre className="bg-stone-900 text-stone-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto max-h-72 leading-relaxed border border-stone-800">
-                {FINANCE_SETUP_SQL}
-              </pre>
-              <button
-                onClick={handleCopySql}
-                className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                {copiedSql ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-[#77C614]" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy SQL</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-stone-100 flex justify-end">
-              <button
-                onClick={() => setShowSqlModal(false)}
-                className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 cursor-pointer"
-              >
-                Done
               </button>
             </div>
           </div>

@@ -272,7 +272,7 @@ export const CalendarPage: React.FC = () => {
         {loading ? (
           <div className="h-96 flex flex-col items-center justify-center text-stone-400 gap-2">
             <Loader2 className="w-7 h-7 animate-spin text-[#77C614]" />
-            <span className="text-xs">Loading calendar events from Supabase...</span>
+            <span className="text-xs">Loading calendar events...</span>
           </div>
         ) : (
           <div>

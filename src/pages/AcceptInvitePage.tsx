@@ -96,6 +96,27 @@ export const AcceptInvitePage: React.FC = () => {
     loadInvitation();
   }, [token, isDemoMode]);
 
+  const isEmailMismatch = Boolean(
+    user &&
+    invitation &&
+    user.email &&
+    invitation.email &&
+    user.email.toLowerCase() !== invitation.email.toLowerCase()
+  );
+
+  useEffect(() => {
+    if (token) {
+      sessionStorage.setItem('deolive_pending_invite_token', token);
+    }
+  }, [token]);
+
+  // When user is authenticated and email matches the invitation, automatically join without requiring confirmation
+  useEffect(() => {
+    if (invitation && user && user.email && !isEmailMismatch && !accepting && !acceptError) {
+      handleAcceptInvite();
+    }
+  }, [invitation, user, isEmailMismatch, accepting, acceptError]);
+
   const handleAcceptInvite = async () => {
     if (!token || !invitation) return;
 
@@ -138,13 +159,6 @@ export const AcceptInvitePage: React.FC = () => {
     await signOut();
     // Stay on this accept-invite page with the token
   };
-
-  const isEmailMismatch =
-    user &&
-    invitation &&
-    user.email &&
-    invitation.email &&
-    user.email.toLowerCase() !== invitation.email.toLowerCase();
 
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-brand-primary/20 selection:text-stone-900">

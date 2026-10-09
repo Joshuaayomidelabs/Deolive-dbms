@@ -61,7 +61,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
     error: any
   ) => {
-    console.error(`[Supabase RLS Error] on ${table} (${operation}):`, error);
     if (isRLSError(error)) {
       const details = generateRLSPolicySuggestion(table, operation, error);
       setRlsError(details);
@@ -210,8 +209,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Setup demo environment
       const fakeUser: any = {
         id: DEMO_USER_ID,
-        email: 'elena@deolive.io',
-        user_metadata: { full_name: 'Elena Rostova' },
+        email: 'director@deolive.io',
+        user_metadata: { full_name: 'Studio Director' },
         app_metadata: {},
         aud: 'authenticated',
         created_at: new Date().toISOString(),
@@ -293,14 +292,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         },
       });
-      if (error) throw error;
 
-      // Ensure profile row exists right away
-      if (data.user) {
-        await syncProfile(data.user.id, fullName);
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        if (
+          msg.includes('already registered') ||
+          msg.includes('already in use') ||
+          msg.includes('user already exists')
+        ) {
+          throw new Error('This email address is already registered. Please sign in instead.');
+        }
+        throw error;
       }
 
-      return { error: null, user: data.user };
+      // Supabase user enumeration protection: if identities array is empty, user already exists
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        throw new Error('This email address is already registered. Please sign in instead.');
+      }
+
+      // With email verification disabled, if session is not returned in data.session, sign in immediately
+      let activeUser = data.user;
+      if (!data.session) {
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInErr) {
+          throw signInErr;
+        }
+        if (signInData.user) {
+          activeUser = signInData.user;
+        }
+      }
+
+      if (activeUser) {
+        setUser(activeUser);
+        // Ensure profile row exists immediately
+        await syncProfile(activeUser.id, fullName);
+
+        // Check for any stored pending invitation token
+        const storedToken = sessionStorage.getItem('deolive_pending_invite_token');
+        if (storedToken) {
+          try {
+            await supabase.rpc('accept_invitation', { p_token: storedToken });
+            sessionStorage.removeItem('deolive_pending_invite_token');
+          } catch {
+            // ignore
+          }
+        }
+
+        // Auto-join any pending invitations issued for this email address
+        try {
+          const { data: pendingInvites } = await supabase
+            .from('invitations')
+            .select('token')
+            .ilike('email', email.trim())
+            .eq('status', 'pending');
+
+          if (pendingInvites && pendingInvites.length > 0) {
+            for (const inv of pendingInvites) {
+              if (inv.token) {
+                try {
+                  await supabase.rpc('accept_invitation', { p_token: inv.token });
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        // Load organization memberships immediately
+        await loadUserOrganizations(activeUser.id);
+      }
+
+      return { error: null, user: activeUser };
     } catch (error: any) {
       return { error };
     }

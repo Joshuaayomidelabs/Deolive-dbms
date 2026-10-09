@@ -4,8 +4,8 @@ export const DEMO_USER_ID = 'demo-user-10111213-1415-1617-1819-202122232425';
 
 export const DEMO_PROFILE: Profile = {
   id: DEMO_USER_ID,
-  full_name: 'Elena Rostova',
-  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+  full_name: 'Studio Director',
+  avatar_url: null,
   created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
 };
 
@@ -73,7 +73,7 @@ export const DEMO_PROJECTS: Project[] = [
     id: 'proj-01',
     organization_id: 'org-olive-prime-001',
     name: 'Apollo Cloud Infrastructure Migration',
-    description: 'Transitioning multi-region database replication and failover architecture onto Supabase dedicated pools.',
+    description: 'Transitioning multi-region database replication and failover architecture onto dedicated cloud clusters.',
     status: 'active',
     start_date: '2026-09-01',
     due_date: '2026-11-15',
@@ -84,7 +84,7 @@ export const DEMO_PROJECTS: Project[] = [
     id: 'proj-02',
     organization_id: 'org-olive-prime-001',
     name: 'Enterprise RBAC & Security Audit',
-    description: 'Enforcing Postgres Row Level Security policies across public schema and user privilege isolation.',
+    description: 'Enforcing role-based access policies across workspace schema and user privilege isolation.',
     status: 'active',
     start_date: '2026-09-15',
     due_date: '2026-10-30',
@@ -146,7 +146,7 @@ export const DEMO_TASKS: Task[] = [
     id: 'task-03',
     organization_id: 'org-olive-prime-001',
     project_id: 'proj-02',
-    title: 'Verify organization_members tenant isolation RLS',
+    title: 'Verify organization_members tenant isolation policies',
     description: 'Run automated permission injection tests to confirm no cross-tenant leaking.',
     status: 'in_progress',
     priority: 'high',

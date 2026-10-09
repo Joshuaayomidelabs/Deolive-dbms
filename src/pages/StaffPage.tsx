@@ -59,8 +59,8 @@ export const StaffPage: React.FC = () => {
           user_id: 'usr-2',
           role: 'admin',
           profile: {
-            full_name: 'Elena Rostova',
-            email: 'elena@de-olive.com',
+            full_name: 'Studio Director',
+            email: 'director@de-olive.com',
           },
         },
         {
@@ -68,8 +68,8 @@ export const StaffPage: React.FC = () => {
           user_id: 'usr-3',
           role: 'member',
           profile: {
-            full_name: 'Karim Al-Mansoor',
-            email: 'karim@de-olive.com',
+            full_name: 'Project Architect',
+            email: 'architect@de-olive.com',
           },
         },
       ]);

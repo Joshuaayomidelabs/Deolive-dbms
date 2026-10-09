@@ -42,328 +42,9 @@ import {
   Vendor,
   InventoryItem,
 } from '../types/database';
-import { DEMO_PROJECTS, DEMO_TASKS } from '../lib/mockData';
 
 // --- Date Filter Range Types ---
 export type DateRangeType = 'this_month' | 'last_3_months' | 'this_year' | 'custom';
-
-// --- Sample Data Fallbacks when Organization has 0 records ---
-const SAMPLE_CLIENTS: Client[] = [
-  {
-    id: 'sample-c-1',
-    organization_id: 'sample-org',
-    name: 'Al-Khobar Royal Estate',
-    type: 'Residential',
-    location: 'Eastern Province, KSA',
-    email: 'estates@alkhobar-royal.com',
-    phone: '+966 13 898 4400',
-    created_at: '2026-08-15T10:00:00Z',
-  },
-  {
-    id: 'sample-c-2',
-    organization_id: 'sample-org',
-    name: 'Red Sea Luxury Resort & Spa',
-    type: 'Hospitality',
-    location: 'Red Sea Coast, KSA',
-    email: 'procurement@redsearesorts.sa',
-    phone: '+966 12 654 3322',
-    created_at: '2026-07-20T14:30:00Z',
-  },
-  {
-    id: 'sample-c-3',
-    organization_id: 'sample-org',
-    name: 'Riyadh Financial Tower HQ',
-    type: 'Commercial',
-    location: 'KAFD, Riyadh',
-    email: 'facilities@riyadhft.com',
-    phone: '+966 11 411 9900',
-    created_at: '2026-09-01T09:15:00Z',
-  },
-  {
-    id: 'sample-c-4',
-    organization_id: 'sample-org',
-    name: 'Diriyah Heritage Boutique Hotel',
-    type: 'Hospitality',
-    location: 'Diriyah Historic District',
-    email: 'gm@diriyahhotel.sa',
-    phone: '+966 11 229 8811',
-    created_at: '2026-08-05T11:45:00Z',
-  },
-];
-
-const SAMPLE_DESIGNS: Design[] = [
-  {
-    id: 'sample-d-1',
-    organization_id: 'sample-org',
-    project_id: 'proj-01',
-    name: 'Grand Lobby Mood Board & Material Palette',
-    type: 'Mood Board',
-    status: 'Approved',
-    file_path: 'designs/sample-lobby-board.pdf',
-    file_url: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80',
-    uploaded_by: null,
-    created_at: '2026-09-12T11:00:00Z',
-  },
-  {
-    id: 'sample-d-2',
-    organization_id: 'sample-org',
-    project_id: 'proj-01',
-    name: 'Penthouse Suite 3D Photorealistic Render',
-    type: '3D Render',
-    status: 'Approved',
-    file_path: 'designs/sample-suite-render.jpg',
-    file_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-    uploaded_by: null,
-    created_at: '2026-09-20T15:20:00Z',
-  },
-  {
-    id: 'sample-d-3',
-    organization_id: 'sample-org',
-    project_id: 'proj-02',
-    name: 'Executive Boardroom Architectural Floor Plan v3',
-    type: 'Floor Plan',
-    status: 'Pending',
-    file_path: 'designs/sample-boardroom-plan.pdf',
-    file_url: null,
-    uploaded_by: null,
-    created_at: '2026-10-02T16:45:00Z',
-  },
-  {
-    id: 'sample-d-4',
-    organization_id: 'sample-org',
-    project_id: 'proj-03',
-    name: 'Wellness Spa Custom Millwork & Joinery Details',
-    type: 'Other',
-    status: 'Pending',
-    file_path: 'designs/sample-millwork.pdf',
-    file_url: null,
-    uploaded_by: null,
-    created_at: '2026-10-05T09:30:00Z',
-  },
-];
-
-const SAMPLE_INVOICES: Invoice[] = [
-  {
-    id: 'sample-inv-1',
-    organization_id: 'sample-org',
-    project_id: 'proj-01',
-    client_id: 'sample-c-1',
-    invoice_number: 'INV-0001',
-    amount: 145000,
-    status: 'Paid',
-    issue_date: '2026-08-01',
-    due_date: '2026-08-30',
-    notes: 'Initial schematic retainer 30%',
-    created_at: '2026-08-01T10:00:00Z',
-  },
-  {
-    id: 'sample-inv-2',
-    organization_id: 'sample-org',
-    project_id: 'proj-02',
-    client_id: 'sample-c-3',
-    invoice_number: 'INV-0002',
-    amount: 88500,
-    status: 'Sent',
-    issue_date: '2026-09-15',
-    due_date: '2026-10-15',
-    notes: 'Phase 2 detailed design milestone',
-    created_at: '2026-09-15T14:00:00Z',
-  },
-  {
-    id: 'sample-inv-3',
-    organization_id: 'sample-org',
-    project_id: 'proj-03',
-    client_id: 'sample-c-2',
-    invoice_number: 'INV-0003',
-    amount: 62000,
-    status: 'Overdue',
-    issue_date: '2026-08-10',
-    due_date: '2026-09-10',
-    notes: 'FF&E procurement initial deposit',
-    created_at: '2026-08-10T09:00:00Z',
-  },
-  {
-    id: 'sample-inv-4',
-    organization_id: 'sample-org',
-    project_id: 'proj-04',
-    client_id: 'sample-c-4',
-    invoice_number: 'INV-0004',
-    amount: 115000,
-    status: 'Paid',
-    issue_date: '2026-07-05',
-    due_date: '2026-08-05',
-    notes: 'Boutique architectural milestone',
-    created_at: '2026-07-05T11:00:00Z',
-  },
-];
-
-const SAMPLE_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'sample-tx-1',
-    organization_id: 'sample-org',
-    project_id: 'proj-01',
-    invoice_id: 'sample-inv-1',
-    description: 'Client Retainer Payment - Al-Khobar Royal Estate',
-    type: 'Income',
-    category: 'Client Invoices',
-    amount: 145000,
-    transaction_date: '2026-08-28',
-    created_at: '2026-08-28T12:00:00Z',
-  },
-  {
-    id: 'sample-tx-2',
-    organization_id: 'sample-org',
-    project_id: 'proj-04',
-    invoice_id: 'sample-inv-4',
-    description: 'Milestone Sign-off Payment - Diriyah Hotel',
-    type: 'Income',
-    category: 'Client Invoices',
-    amount: 115000,
-    transaction_date: '2026-07-30',
-    created_at: '2026-07-30T10:00:00Z',
-  },
-  {
-    id: 'sample-tx-3',
-    organization_id: 'sample-org',
-    project_id: 'proj-01',
-    invoice_id: null,
-    description: 'Al-Noor Quarries Calacatta Marble Consignment',
-    type: 'Expense',
-    category: 'Procurement & Materials',
-    amount: 42000,
-    transaction_date: '2026-09-05',
-    created_at: '2026-09-05T14:00:00Z',
-  },
-  {
-    id: 'sample-tx-4',
-    organization_id: 'sample-org',
-    project_id: 'proj-02',
-    invoice_id: null,
-    description: 'Milanese Textiles Custom Acoustic Wall Panels',
-    type: 'Expense',
-    category: 'FF&E',
-    amount: 28500,
-    transaction_date: '2026-09-22',
-    created_at: '2026-09-22T16:00:00Z',
-  },
-  {
-    id: 'sample-tx-5',
-    organization_id: 'sample-org',
-    project_id: null,
-    invoice_id: null,
-    description: 'Studio Autodesk AEC & 3ds Max Enterprise Licenses',
-    type: 'Expense',
-    category: 'Software & Technology',
-    amount: 12400,
-    transaction_date: '2026-10-01',
-    created_at: '2026-10-01T08:30:00Z',
-  },
-];
-
-const SAMPLE_VENDORS: Vendor[] = [
-  {
-    id: 'sample-v-1',
-    organization_id: 'sample-org',
-    name: 'Al-Noor Marble & Granite Quarries',
-    category: 'Materials',
-    contact_person: 'Tariq Mansoor',
-    email: 'procurement@alnoormarble.sa',
-    phone: '+966 11 498 7700',
-    location: 'Industrial City, Riyadh',
-    status: 'Active',
-    notes: 'Premium natural stone and installation specialists',
-    created_at: '2026-06-10T10:00:00Z',
-  },
-  {
-    id: 'sample-v-2',
-    organization_id: 'sample-org',
-    name: 'Milanese Luxury Textiles & Leathers',
-    category: 'Furniture',
-    contact_person: 'Gianluca Rossi',
-    email: 'orders@milanotextiles.it',
-    phone: '+39 02 8845 2210',
-    location: 'Milan, Italy',
-    status: 'Active',
-    notes: 'Direct importer of bespoke drapery and velvet fabrics',
-    created_at: '2026-06-18T11:00:00Z',
-  },
-  {
-    id: 'sample-v-3',
-    organization_id: 'sample-org',
-    name: 'Lumina Architectural Lighting Studio',
-    category: 'Lighting',
-    contact_person: 'Sophie Vance',
-    email: 'contracts@luminalighting.co.uk',
-    phone: '+44 20 7946 0912',
-    location: 'London / Dubai',
-    status: 'Active',
-    notes: 'Bespoke chandeliers and low-voltage magnetic track lighting',
-    created_at: '2026-07-02T13:00:00Z',
-  },
-];
-
-const SAMPLE_INVENTORY: InventoryItem[] = [
-  {
-    id: 'sample-item-1',
-    organization_id: 'sample-org',
-    vendor_id: 'sample-v-1',
-    project_id: 'proj-01',
-    name: 'Carrara Honed Marble Slabs 20mm',
-    category: 'Materials',
-    sku: 'MAT-101',
-    quantity: 85,
-    unit: 'm2',
-    unit_cost: 165,
-    low_stock_threshold: 25,
-    storage_location: 'Warehouse 01 - Bay 4',
-    created_at: '2026-08-10T09:00:00Z',
-  },
-  {
-    id: 'sample-item-2',
-    organization_id: 'sample-org',
-    vendor_id: 'sample-v-2',
-    project_id: 'proj-02',
-    name: 'Olive Velvet Upholstery Fabric',
-    category: 'Fabric',
-    sku: 'FAB-204',
-    quantity: 12,
-    unit: 'm',
-    unit_cost: 85,
-    low_stock_threshold: 20,
-    storage_location: 'Studio Material Library',
-    created_at: '2026-08-14T11:30:00Z',
-  },
-  {
-    id: 'sample-item-3',
-    organization_id: 'sample-org',
-    vendor_id: 'sample-v-3',
-    project_id: null,
-    name: 'Recessed Magnetic Track Spotlights 3000K',
-    category: 'Materials',
-    sku: 'LGT-305',
-    quantity: 48,
-    unit: 'pcs',
-    unit_cost: 120,
-    low_stock_threshold: 15,
-    storage_location: 'Central Depot - Shelf C',
-    created_at: '2026-09-01T15:00:00Z',
-  },
-  {
-    id: 'sample-item-4',
-    organization_id: 'sample-org',
-    vendor_id: 'sample-v-1',
-    project_id: 'proj-03',
-    name: 'Brushed Brass Edge Trim 3m Lengths',
-    category: 'Materials',
-    sku: 'HRD-410',
-    quantity: 6,
-    unit: 'pcs',
-    unit_cost: 45,
-    low_stock_threshold: 10,
-    storage_location: 'Warehouse 01 - Bin 12',
-    created_at: '2026-09-18T10:00:00Z',
-  },
-];
 
 export const ReportsPage: React.FC = () => {
   const { currentOrg, currentMemberRole, isDemoMode } = useAuth();
@@ -411,14 +92,14 @@ export const ReportsPage: React.FC = () => {
   // Fetch all live data for the current organization
   const fetchAllData = async () => {
     if (!currentOrg?.id) {
-      setProjects(DEMO_PROJECTS);
-      setClients(SAMPLE_CLIENTS);
-      setTasks(DEMO_TASKS);
-      setDesigns(SAMPLE_DESIGNS);
-      setInvoices(SAMPLE_INVOICES);
-      setTransactions(SAMPLE_TRANSACTIONS);
-      setVendors(SAMPLE_VENDORS);
-      setInventory(SAMPLE_INVENTORY);
+      setProjects([]);
+      setClients([]);
+      setTasks([]);
+      setDesigns([]);
+      setInvoices([]);
+      setTransactions([]);
+      setVendors([]);
+      setInventory([]);
       setLoading(false);
       return;
     }
@@ -436,7 +117,7 @@ export const ReportsPage: React.FC = () => {
         setProjects(pData as Project[]);
         setHasRealProjects(true);
       } else {
-        setProjects(DEMO_PROJECTS);
+        setProjects([]);
         setHasRealProjects(false);
       }
 
@@ -451,7 +132,7 @@ export const ReportsPage: React.FC = () => {
         setClients(cData as Client[]);
         setHasRealClients(true);
       } else {
-        setClients(SAMPLE_CLIENTS);
+        setClients([]);
         setHasRealClients(false);
       }
 
@@ -465,7 +146,7 @@ export const ReportsPage: React.FC = () => {
         setTasks(tData as Task[]);
         setHasRealTasks(true);
       } else {
-        setTasks(DEMO_TASKS);
+        setTasks([]);
         setHasRealTasks(false);
       }
 
@@ -480,7 +161,7 @@ export const ReportsPage: React.FC = () => {
         setDesigns(dData as Design[]);
         setHasRealDesigns(true);
       } else {
-        setDesigns(SAMPLE_DESIGNS);
+        setDesigns([]);
         setHasRealDesigns(false);
       }
 
@@ -506,8 +187,8 @@ export const ReportsPage: React.FC = () => {
           setTransactions((txData as Transaction[]) || []);
           setHasRealFinance(true);
         } else {
-          setInvoices(SAMPLE_INVOICES);
-          setTransactions(SAMPLE_TRANSACTIONS);
+          setInvoices([]);
+          setTransactions([]);
           setHasRealFinance(false);
         }
       }
@@ -526,19 +207,18 @@ export const ReportsPage: React.FC = () => {
       if (vData && vData.length > 0) {
         setVendors(vData as Vendor[]);
       } else {
-        setVendors(SAMPLE_VENDORS);
+        setVendors([]);
       }
 
       if (iData && iData.length > 0) {
         setInventory(iData as InventoryItem[]);
         setHasRealInventory(true);
       } else {
-        setInventory(SAMPLE_INVENTORY);
+        setInventory([]);
         setHasRealInventory(false);
       }
     } catch (err) {
       console.error('Error fetching reports data:', err);
-      // Fallbacks already in place
     } finally {
       setLoading(false);
     }
@@ -1299,12 +979,7 @@ export const ReportsPage: React.FC = () => {
                       <CheckCircle2 className="w-3 h-3 text-[#77C614]" />
                       Live Data
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                      <Info className="w-3 h-3 text-amber-500" />
-                      Sample Data
-                    </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <h2 className="text-base font-bold text-stone-950 leading-tight">
@@ -1461,24 +1136,17 @@ export const ReportsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Live vs Sample Status Banner */}
+                {/* Live Status Banner */}
                 <div className="mt-4 flex items-center justify-between">
                   {((activeReportId === 'project_status' && hasRealProjects) ||
                     (activeReportId === 'client_summary' && hasRealClients) ||
                     (activeReportId === 'budget_revenue' && hasRealFinance) ||
                     (activeReportId === 'design_approval' && hasRealDesigns) ||
                     (activeReportId === 'inventory_procurement' && hasRealInventory) ||
-                    (activeReportId === 'task_progress' && hasRealTasks)) ? (
+                    (activeReportId === 'task_progress' && hasRealTasks)) && (
                     <div className="inline-flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Live Database Report: Generated directly from synchronized records.</span>
-                    </div>
-                  ) : (
-                    <div className="inline-flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-                      <Info className="w-3.5 h-3.5 text-amber-600" />
-                      <span>
-                        Sample Data: No synchronized records found for this criteria in your organization.
-                      </span>
                     </div>
                   )}
                 </div>
@@ -2188,7 +1856,7 @@ export const ReportsPage: React.FC = () => {
                   De-Olive Concept Architecture & Design Management System • Confidential Executive Document
                 </div>
                 <div>
-                  Page 1 of 1 • Generated automatically from Supabase Database
+                  Page 1 of 1 • Generated automatically from Workspace Database
                 </div>
               </div>
             </div>

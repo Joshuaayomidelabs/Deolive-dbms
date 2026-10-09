@@ -7,8 +7,6 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  Copy,
-  Check,
   Database,
   Lock,
   Sparkles,
@@ -53,7 +51,6 @@ export const SettingsPage: React.FC = () => {
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileRlsSql, setProfileRlsSql] = useState<string | null>(null);
 
   // Organization Form State
   const [orgName, setOrgName] = useState(currentOrg?.name || '');
@@ -65,9 +62,6 @@ export const SettingsPage: React.FC = () => {
   );
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgError, setOrgError] = useState<string | null>(null);
-  const [orgRlsSql, setOrgRlsSql] = useState<string | null>(null);
-
-  const [copiedSql, setCopiedSql] = useState<string | null>(null);
 
   const isOwner = currentMemberRole === 'owner';
 
@@ -90,7 +84,6 @@ export const SettingsPage: React.FC = () => {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileError(null);
-    setProfileRlsSql(null);
 
     const trimmed = fullName.trim();
     if (!trimmed) {
@@ -106,23 +99,12 @@ export const SettingsPage: React.FC = () => {
     try {
       const res = await updateProfile(trimmed);
       if (res.error) {
-        setProfileError(res.error.message || 'Failed to update profile.');
-        // If RLS blocked, supply the exact policy
-        const errMsg = res.error.message?.toLowerCase() || '';
-        if (errMsg.includes('policy') || errMsg.includes('row-level security') || errMsg.includes('permission denied')) {
-          setProfileRlsSql(`-- Fix: Allow users to update their own profile
-CREATE POLICY "Allow users update own profile"
-  ON public.profiles
-  FOR UPDATE
-  TO authenticated
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);`);
-        }
+        setProfileError('Failed to update profile. Please try again.');
       } else {
         toast.success('Your profile name was updated successfully.');
       }
-    } catch (err: any) {
-      setProfileError(err.message || 'An unexpected error occurred.');
+    } catch {
+      setProfileError('An unexpected error occurred. Please try again.');
     } finally {
       setProfileSaving(false);
     }
@@ -138,7 +120,6 @@ CREATE POLICY "Allow users update own profile"
     }
 
     setOrgError(null);
-    setOrgRlsSql(null);
 
     const trimmedName = orgName.trim();
     if (!trimmedName) {
@@ -155,36 +136,15 @@ CREATE POLICY "Allow users update own profile"
       });
 
       if (res.error) {
-        setOrgError(res.error.message || 'Failed to update organization details.');
-        const errMsg = res.error.message?.toLowerCase() || '';
-        if (errMsg.includes('policy') || errMsg.includes('row-level security') || errMsg.includes('permission denied')) {
-          setOrgRlsSql(`-- Fix: Allow owners to update their organization details
-CREATE POLICY "Allow owners update org"
-  ON public.organizations
-  FOR UPDATE
-  TO authenticated
-  USING (
-    id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role = 'owner'
-    )
-  );`);
-        }
+        setOrgError('Failed to update organization details. Please try again.');
       } else {
         toast.success(`Organization "${trimmedName}" updated successfully.`);
       }
-    } catch (err: any) {
-      setOrgError(err.message || 'An unexpected error occurred.');
+    } catch {
+      setOrgError('An unexpected error occurred. Please try again.');
     } finally {
       setOrgSaving(false);
     }
-  };
-
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedSql(id);
-    toast.info('SQL Policy copied to clipboard.');
-    setTimeout(() => setCopiedSql(null), 2500);
   };
 
   return (
@@ -220,35 +180,12 @@ CREATE POLICY "Allow owners update org"
 
         <form onSubmit={handleSaveProfile} className="p-6 space-y-5">
           {profileError && (
-            <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 space-y-2">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold">Update Blocked</p>
-                  <p className="text-[11px] text-red-700 mt-0.5">{profileError}</p>
-                </div>
+            <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Update Blocked</p>
+                <p className="text-[11px] text-red-700 mt-0.5">{profileError}</p>
               </div>
-
-              {profileRlsSql && (
-                <div className="mt-2 pt-2 border-t border-red-200">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-mono font-medium text-red-900">
-                      Required Supabase RLS Policy:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(profileRlsSql, 'profile')}
-                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-700 hover:text-red-900"
-                    >
-                      {copiedSql === 'profile' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedSql === 'profile' ? 'Copied' : 'Copy SQL'}</span>
-                    </button>
-                  </div>
-                  <pre className="p-2.5 rounded bg-stone-900 text-stone-200 font-mono text-[10px] overflow-x-auto whitespace-pre">
-                    {profileRlsSql}
-                  </pre>
-                </div>
-              )}
             </div>
           )}
 
@@ -262,7 +199,7 @@ CREATE POLICY "Allow owners update org"
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Elena Rostova"
+                placeholder="e.g. Full Name"
                 className="w-full px-3 py-2 text-xs rounded-lg border border-stone-200 bg-white text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors"
               />
             </div>
@@ -334,35 +271,12 @@ CREATE POLICY "Allow owners update org"
           )}
 
           {orgError && (
-            <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 space-y-2">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold">Organization Update Blocked</p>
-                  <p className="text-[11px] text-red-700 mt-0.5">{orgError}</p>
-                </div>
+            <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Organization Update Blocked</p>
+                <p className="text-[11px] text-red-700 mt-0.5">{orgError}</p>
               </div>
-
-              {orgRlsSql && (
-                <div className="mt-2 pt-2 border-t border-red-200">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-mono font-medium text-red-900">
-                      Required Supabase SQL Policy:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(orgRlsSql, 'org')}
-                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-700 hover:text-red-900"
-                    >
-                      {copiedSql === 'org' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedSql === 'org' ? 'Copied' : 'Copy SQL'}</span>
-                    </button>
-                  </div>
-                  <pre className="p-2.5 rounded bg-stone-900 text-stone-200 font-mono text-[10px] overflow-x-auto whitespace-pre">
-                    {orgRlsSql}
-                  </pre>
-                </div>
-              )}
             </div>
           )}
 
@@ -452,12 +366,12 @@ CREATE POLICY "Allow owners update org"
           <Database className="w-5 h-5 text-stone-400 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold text-stone-900">
-              Database Connection: {isConfigured ? 'Supabase Live' : 'Demo Workspace'}
+              Database Connection: {isConfigured ? 'Live Cloud' : 'Demo Workspace'}
             </p>
             <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">
               {isConfigured
-                ? 'Your application is connected directly via environment variables to Supabase.'
-                : 'Running in self-contained demo sandbox mode. Configure VITE_SUPABASE_URL to connect.'}
+                ? 'Your application is connected directly to your secure cloud database.'
+                : 'Running in self-contained demo sandbox mode.'}
             </p>
           </div>
         </div>
@@ -469,7 +383,7 @@ CREATE POLICY "Allow owners update org"
                 isConfigured ? 'bg-brand-primary' : 'bg-amber-400'
               }`}
             />
-            {isConfigured ? 'LIVE POSTGRES' : 'SANDBOX'}
+            {isConfigured ? 'LIVE CLOUD' : 'SANDBOX'}
           </span>
         </div>
       </div>

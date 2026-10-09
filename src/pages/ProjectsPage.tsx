@@ -23,7 +23,6 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
 import { Project, ProjectStatus, Task, Client } from '../types/database';
-import { DEMO_PROJECTS, DEMO_TASKS } from '../lib/mockData';
 import { ConfirmModal } from '../components/modals/ConfirmModal';
 
 const STATUS_MAPPINGS: Record<string, { label: string; badgeClass: string }> = {
@@ -32,14 +31,6 @@ const STATUS_MAPPINGS: Record<string, { label: string; badgeClass: string }> = {
   on_hold: { label: 'Design', badgeClass: 'badge-design' },
   completed: { label: 'Completed', badgeClass: 'badge-completed' },
 };
-
-const SAMPLE_CLIENT_NAMES = [
-  'Sheikh Saud Estate',
-  'Al-Areen Resort',
-  'TechStart Regional HQ',
-  'Villa Al-Nakheel Oasis',
-  'Olea Artisan Dining',
-];
 
 export const ProjectsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -75,13 +66,6 @@ export const ProjectsPage: React.FC = () => {
 
   const fetchProjects = async () => {
     if (!currentOrg) return;
-
-    if (isDemoMode) {
-      setProjects(DEMO_PROJECTS);
-      setTasks(DEMO_TASKS);
-      setLoading(false);
-      return;
-    }
 
     setLoading(true);
     try {
@@ -348,18 +332,11 @@ export const ProjectsPage: React.FC = () => {
     return Math.round((completed / projTasks.length) * 100);
   };
 
-  const getClientForProject = (proj: Project, idx: number) => {
+  const getClientForProject = (proj: Project) => {
     const savedClientId = proj.client_id || localStorage.getItem(`deolive_project_client_${proj.id}`);
     if (savedClientId) {
-      if (savedClientId.startsWith('sample-')) {
-        return savedClientId.replace('sample-', '');
-      }
       const matched = clients.find((c) => c.id === savedClientId);
       if (matched) return matched.name;
-    }
-
-    if (isDemoMode) {
-      return SAMPLE_CLIENT_NAMES[idx % SAMPLE_CLIENT_NAMES.length];
     }
 
     return '—';
@@ -504,7 +481,7 @@ export const ProjectsPage: React.FC = () => {
                     badgeClass: 'badge-concept',
                   };
                   const progress = getProjectProgress(project.id, idx);
-                  const clientName = getClientForProject(project, idx);
+                  const clientName = getClientForProject(project);
                   const projectIdCode = `#${String(idx + 1).padStart(4, '0')}`;
                   const deadlineStr = project.due_date
                     ? new Date(project.due_date).toLocaleDateString('en-US', {
@@ -664,7 +641,7 @@ export const ProjectsPage: React.FC = () => {
                   required
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g. Villa Al-Khobar Renovation"
+                  placeholder="e.g. Executive Residence Architectural Concept"
                   className="w-full bg-stone-50 border border-stone-200 focus:bg-white focus:border-[#77C614] rounded-xl px-3.5 py-2.5 text-xs text-stone-900 focus:outline-none"
                 />
               </div>
@@ -682,17 +659,7 @@ export const ProjectsPage: React.FC = () => {
                       {c.name} — {c.type}
                     </option>
                   ))}
-                  {clients.length === 0 && isDemoMode && (
-                    <>
-                      <option disabled value="">— Sample Clients —</option>
-                      {SAMPLE_CLIENT_NAMES.map((name) => (
-                        <option key={name} value={`sample-${name}`}>
-                          {name} (Sample)
-                        </option>
-                      ))}
-                    </>
-                  )}
-                  {clients.length === 0 && !isDemoMode && (
+                  {clients.length === 0 && (
                     <option disabled value="">(No clients yet. Add clients in Clients page)</option>
                   )}
                 </select>

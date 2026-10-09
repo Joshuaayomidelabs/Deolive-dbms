@@ -555,7 +555,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 3: Security & RLS */}
+              {/* Row 3: Security Layer */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-[#18181D] border border-[#25252C]">
                 <div className="flex items-center gap-2.5 text-xs text-stone-300">
                   <Sparkles className="w-4 h-4 text-stone-400" />

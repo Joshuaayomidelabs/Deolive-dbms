@@ -18,9 +18,9 @@ const INITIAL_MESSAGES: Message[] = [
 ];
 
 const SUGGESTED_PROMPTS = [
-  'Estimate Italian Carrara marble budget',
-  'Draft mood board concepts for luxury penthouse',
-  'Review milestone deadlines for Villa project',
+  'Estimate material finishes budget',
+  'Draft mood board concepts for luxury residential space',
+  'Review upcoming project deliverable deadlines',
   'Generate client procurement status email',
 ];
 
@@ -49,14 +49,14 @@ export const AIAssistantDrawer: React.FC = () => {
       let reply = "I've reviewed your request for the design workflow. All spatial specifications and material selections have been verified against De-Olive DBMS standards.";
       const lower = query.toLowerCase();
 
-      if (lower.includes('marble') || lower.includes('budget') || lower.includes('cost')) {
-        reply = 'Based on current supplier rates from Al-Noor Marble & Granite: 120m² of Carrara Honed slabs with custom edge treatment is estimated at $38,400.00 including dry-lay inspection and transit.';
-      } else if (lower.includes('mood') || lower.includes('concept') || lower.includes('penthouse')) {
-        reply = 'For the luxury penthouse concept: I recommend pairing brushed brass architectural hardware with bouclé textiles and smoked eucalyptus millwork. Mood board draft #04 is ready in your Design Library.';
-      } else if (lower.includes('deadline') || lower.includes('villa') || lower.includes('milestone')) {
-        reply = 'The Villa Al-Khobar Renovation milestone "Phase 2 Joinery & MEP Rough-in" is scheduled for completion next Friday. Progress is currently tracked at 68% with zero material delays.';
+      if (lower.includes('marble') || lower.includes('budget') || lower.includes('cost') || lower.includes('estimate')) {
+        reply = 'Based on current verified supplier rates in your procurement ledger: customized slab finishes with precision edge treatments average $280-$320/m² including transit and dry-lay inspection.';
+      } else if (lower.includes('mood') || lower.includes('concept') || lower.includes('penthouse') || lower.includes('residential')) {
+        reply = 'For your active luxury concepts: consider pairing brushed brass architectural hardware with bouclé textiles and smoked eucalyptus millwork. You can upload the concept board directly into the Designs gallery.';
+      } else if (lower.includes('deadline') || lower.includes('milestone') || lower.includes('schedule')) {
+        reply = 'All deliverable milestones and site sign-offs for your active projects are synced in your Calendar tab, categorized by due dates and priority levels.';
       } else if (lower.includes('email') || lower.includes('client')) {
-        reply = 'Here is a draft update for your client:\n\n"Dear Client, We are pleased to report that 3D renders for the master suite and living pavilions have received municipal approval. Material procurement has commenced on schedule."';
+        reply = 'Here is a draft project update for your client:\n\n"Dear Client, We are pleased to report that the 3D visual concepts for your active space have been finalized. Milestone deliverables remain fully on schedule."';
       }
 
       const aiMsg: Message = {

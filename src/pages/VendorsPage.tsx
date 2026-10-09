@@ -41,72 +41,6 @@ interface DisplayVendor {
   isSample?: boolean;
 }
 
-export const VENDORS_SETUP_SQL = `-- 1. Create 'vendors' table
-CREATE TABLE IF NOT EXISTS public.vendors (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('Furniture', 'Materials', 'Lighting', 'Contractor', 'Other')),
-  contact_person TEXT,
-  email TEXT,
-  phone TEXT,
-  location TEXT,
-  status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
-  notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
--- 2. Indexes for 'vendors'
-CREATE INDEX IF NOT EXISTS idx_vendors_org_id ON public.vendors(organization_id);
-CREATE INDEX IF NOT EXISTS idx_vendors_category ON public.vendors(category);
-CREATE INDEX IF NOT EXISTS idx_vendors_created_at ON public.vendors(created_at DESC);
-
--- 3. Enable Row Level Security (RLS)
-ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
-
--- 4. RLS policies for 'vendors'
-DROP POLICY IF EXISTS "Allow members to read vendors" ON public.vendors;
-CREATE POLICY "Allow members to read vendors"
-  ON public.vendors FOR SELECT TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Allow members to create vendors" ON public.vendors;
-CREATE POLICY "Allow members to create vendors"
-  ON public.vendors FOR INSERT TO authenticated
-  WITH CHECK (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Allow members to update vendors" ON public.vendors;
-CREATE POLICY "Allow members to update vendors"
-  ON public.vendors FOR UPDATE TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()
-    )
-  );
-
--- Only owners and admins may delete vendors
-DROP POLICY IF EXISTS "Allow members to delete vendors" ON public.vendors;
-DROP POLICY IF EXISTS "Allow owners and admins to delete vendors" ON public.vendors;
-CREATE POLICY "Allow owners and admins to delete vendors"
-  ON public.vendors FOR DELETE TO authenticated
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );`;
-
 export const VendorsPage: React.FC = () => {
   const { currentOrg, currentMemberRole, isDemoMode, reportRLSError } = useAuth();
   const { showToast } = useToast();
@@ -141,10 +75,6 @@ export const VendorsPage: React.FC = () => {
   // Delete modal state
   const [vendorToDelete, setVendorToDelete] = useState<DisplayVendor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // SQL Script modal state
-  const [showSqlModal, setShowSqlModal] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
 
   const fetchVendors = async () => {
     if (!currentOrg) return;
@@ -295,7 +225,7 @@ export const VendorsPage: React.FC = () => {
 
         if (error) {
           if (isRLSError(error)) reportRLSError('vendors', 'UPDATE', error);
-          setModalError(error.message);
+          setModalError('Something went wrong, please try again.');
         } else {
           setVendors(vendors.map((v) => (v.id === editingVendor.id ? data : v)));
           showToast(`Vendor "${data.name}" updated successfully.`, 'success');
@@ -323,22 +253,15 @@ export const VendorsPage: React.FC = () => {
           .single();
 
         if (error) {
-          if (isRLSError(error)) reportRLSError('vendors', 'INSERT', error);
-          const msg = (error.message || '').toLowerCase();
-          if (msg.includes('relation') && msg.includes('does not exist')) {
-            setTableExists(false);
-            setModalError('The "vendors" table does not exist in Supabase yet. Please run the SQL schema script in your Supabase SQL editor.');
-          } else {
-            setModalError(error.message);
-          }
+          setModalError('Something went wrong, please try again.');
         } else {
           setVendors([data, ...vendors]);
           showToast(`Vendor "${data.name}" added to registry.`, 'success');
           setShowAddModal(false);
         }
       }
-    } catch (err: any) {
-      setModalError(err.message || 'Error occurred while saving vendor.');
+    } catch {
+      setModalError('Something went wrong, please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -371,25 +294,17 @@ export const VendorsPage: React.FC = () => {
         .eq('id', vendorToDelete.id);
 
       if (error) {
-        if (isRLSError(error)) reportRLSError('vendors', 'DELETE', error);
-        showToast(`Failed to delete vendor: ${error.message}`, 'error');
+        showToast('Something went wrong, please try again.', 'error');
       } else {
         setVendors(vendors.filter((v) => v.id !== vendorToDelete.id));
         showToast(`Vendor "${vendorToDelete.name}" removed from registry.`, 'info');
       }
     } catch {
-      showToast('An unexpected error occurred while deleting.', 'error');
+      showToast('Something went wrong, please try again.', 'error');
     } finally {
       setIsDeleting(false);
       setVendorToDelete(null);
     }
-  };
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(VENDORS_SETUP_SQL);
-    setCopiedSql(true);
-    showToast('Supabase SQL copied to clipboard.', 'success');
-    setTimeout(() => setCopiedSql(false), 2500);
   };
 
   const getCategoryBadge = (cat: VendorCategory) => {
@@ -421,17 +336,6 @@ export const VendorsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          {isOwnerOrAdmin && (
-            <button
-              onClick={() => setShowSqlModal(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              title="View Database Schema SQL"
-            >
-              <Code2 className="w-3.5 h-3.5 text-[#5FA20D]" />
-              <span>Database SQL</span>
-            </button>
-          )}
-
           <button
             onClick={handleOpenAddModal}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#111113] hover:bg-[#222226] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
@@ -441,27 +345,6 @@ export const VendorsPage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* SQL Setup Notice if table does not exist (owners and admins only) */}
-      {!tableExists && !isDemoMode && isOwnerOrAdmin && (
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900">
-          <div className="flex items-start gap-2.5">
-            <Database className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-950">Vendors Database Table Required</p>
-              <p className="text-amber-800 text-[11px] mt-0.5">
-                Run the quick SQL script in your database to enable persistence and access controls.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowSqlModal(true)}
-            className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs shrink-0 cursor-pointer transition-colors"
-          >
-            View SQL Script
-          </button>
-        </div>
-      )}
 
       {/* When vendors exist: Search & Filters Card */}
       {!hasNoRealVendors && (
@@ -517,7 +400,7 @@ export const VendorsPage: React.FC = () => {
       {loading ? (
         <div className="h-64 flex flex-col items-center justify-center text-stone-400 gap-2">
           <Loader2 className="w-7 h-7 animate-spin text-[#77C614]" />
-          <span className="text-xs">Loading vendor directory from Supabase...</span>
+          <span className="text-xs">Loading vendor directory...</span>
         </div>
       ) : hasNoRealVendors ? (
         /* Empty-state Card when there are none */
@@ -843,62 +726,6 @@ export const VendorsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={() => setVendorToDelete(null)}
       />
-
-      {/* SQL Script View Modal */}
-      {showSqlModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-stone-200 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-[#5FA20D]" />
-                <h3 className="text-sm font-bold text-stone-900">Supabase SQL: Vendors Table</h3>
-              </div>
-              <button
-                onClick={() => setShowSqlModal(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-stone-600 mt-3">
-              Paste and run this in your{' '}
-              <span className="font-semibold text-stone-800">Supabase Dashboard &gt; SQL Editor</span>. It creates the <code className="bg-stone-100 px-1 py-0.5 rounded text-stone-800">vendors</code> table and enables Row Level Security for all organization members.
-            </p>
-
-            <div className="mt-3 relative">
-              <pre className="bg-stone-900 text-stone-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto max-h-72 leading-relaxed border border-stone-800">
-                {VENDORS_SETUP_SQL}
-              </pre>
-              <button
-                onClick={handleCopySql}
-                className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                {copiedSql ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-[#77C614]" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy SQL</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-stone-100 flex justify-end">
-              <button
-                onClick={() => setShowSqlModal(false)}
-                className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

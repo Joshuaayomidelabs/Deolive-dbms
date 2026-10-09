@@ -13,7 +13,6 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { SupabaseConfigModal } from '../components/modals/SupabaseConfigModal';
 
 export const AuthPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,7 +31,6 @@ export const AuthPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [showConfigModal, setShowConfigModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,22 +47,45 @@ export const AuthPage: React.FC = () => {
           navigate(returnTo || '/');
         }
       } else if (mode === 'signup') {
-        if (!fullName.trim()) {
+        const trimmedName = fullName.trim();
+        if (!trimmedName) {
           setErrorMsg('Full name is required to initialize your profile.');
           setLoading(false);
           return;
         }
-        const res = await signUp(email, password, fullName.trim());
+        if (!email.trim() || !email.includes('@')) {
+          setErrorMsg('Please enter a valid email address.');
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setErrorMsg('Password must be at least 6 characters long.');
+          setLoading(false);
+          return;
+        }
+        const res = await signUp(email.trim(), password, trimmedName);
         if (res.error) {
-          setErrorMsg(res.error.message || 'Failed to sign up.');
+          const msg = res.error.message || '';
+          if (
+            msg.toLowerCase().includes('already registered') ||
+            msg.toLowerCase().includes('already in use') ||
+            msg.toLowerCase().includes('user already exists')
+          ) {
+            setErrorMsg('This email address is already registered. Please sign in instead.');
+          } else {
+            setErrorMsg(res.error.message || 'Failed to create account. Please try again.');
+          }
         } else {
-          setSuccessMsg('Account created successfully! Redirecting...');
-          setTimeout(() => {
-            navigate(returnTo || '/');
-          }, 1000);
+          // Immediately send the user to the next step (dashboard or return destination)
+          navigate(returnTo || '/', { replace: true });
         }
       } else if (mode === 'forgot') {
-        const res = await resetPassword(email);
+        if (!email.trim()) {
+          setErrorMsg('Please enter your email address to receive password reset instructions.');
+          setLoading(false);
+          return;
+        }
+        const res = await resetPassword(email.trim());
         if (res.error) {
           setErrorMsg(res.error.message || 'Failed to send password reset email.');
         } else {
@@ -85,7 +106,7 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative selection:bg-[#77C614]/30 selection:text-black">
-      {/* Top Bar Config / Demo helper */}
+      {/* Top Bar Demo helper */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 z-10">
         <button
           onClick={handleLaunchDemo}
@@ -93,14 +114,6 @@ export const AuthPage: React.FC = () => {
         >
           <Sparkles className="w-3.5 h-3.5" />
           <span>Launch Demo</span>
-        </button>
-
-        <button
-          onClick={() => setShowConfigModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#141416] hover:bg-[#1E1E22] text-stone-400 hover:text-stone-200 border border-[#25252B] transition-colors cursor-pointer"
-        >
-          <Settings2 className="w-3.5 h-3.5 text-[#77C614]" />
-          <span className="hidden sm:inline">{isConfigured ? 'Connected' : 'Database'}</span>
         </button>
       </div>
 
@@ -190,7 +203,7 @@ export const AuthPage: React.FC = () => {
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Sarah Jenkins"
+                  placeholder="e.g. Jane Doe"
                   className="w-full bg-[#18181C] border border-[#2A2A30] text-stone-100 placeholder-stone-500 rounded-xl pl-10 pr-4 py-3 text-xs focus:outline-none focus:border-[#77C614] focus:ring-1 focus:ring-[#77C614] transition-colors"
                 />
               </div>
@@ -268,24 +281,14 @@ export const AuthPage: React.FC = () => {
           </button>
         </form>
 
-        {/* Footer: "Protected by" + lime-green link to backend name */}
+        {/* Footer: Enterprise security assurance */}
         <div className="mt-8 pt-5 border-t border-[#1F1F24] text-center text-xs text-stone-400">
           <span>Protected by </span>
-          <a
-            href="https://supabase.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#77C614] hover:underline font-semibold"
-          >
-            Supabase Cloud Authentication & RLS
-          </a>
+          <span className="text-[#77C614] font-semibold">
+            Enterprise Cloud Authentication & Data Encryption
+          </span>
         </div>
       </div>
-
-      <SupabaseConfigModal
-        isOpen={showConfigModal}
-        onClose={() => setShowConfigModal(false)}
-      />
     </div>
   );
 };
