@@ -421,14 +421,16 @@ export const ClientsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <button
-            onClick={() => setShowSqlModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-            title="View Supabase Schema SQL"
-          >
-            <Code2 className="w-3.5 h-3.5 text-[#5FA20D]" />
-            <span>Supabase SQL</span>
-          </button>
+          {canDeleteClients && (
+            <button
+              onClick={() => setShowSqlModal(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              title="View Database Schema SQL"
+            >
+              <Code2 className="w-3.5 h-3.5 text-[#5FA20D]" />
+              <span>Database SQL</span>
+            </button>
+          )}
 
           <button
             onClick={handleOpenAddModal}
@@ -440,15 +442,15 @@ export const ClientsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Database Setup Notice if table does not exist */}
-      {!tableExists && !isDemoMode && (
+      {/* Database Setup Notice if table does not exist (owner/admin only) */}
+      {!tableExists && !isDemoMode && canDeleteClients && (
         <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900">
           <div className="flex items-start gap-2.5">
             <Database className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-amber-950">Supabase "clients" Table Needed</p>
+              <p className="font-semibold text-amber-950">Clients Database Table Required</p>
               <p className="text-amber-800 text-[11px] mt-0.5">
-                Run the quick SQL script in your Supabase SQL Editor to enable database persistence and Row Level Security.
+                Run the quick SQL script in your database to enable persistence and access controls.
               </p>
             </div>
           </div>

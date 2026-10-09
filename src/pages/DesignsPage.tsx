@@ -649,14 +649,16 @@ export const DesignsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <button
-            onClick={() => setShowSqlModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-            title="View Supabase Schema and Storage SQL"
-          >
-            <Code2 className="w-3.5 h-3.5 text-[#5FA20D]" />
-            <span>Supabase SQL</span>
-          </button>
+          {isOwnerOrAdmin && (
+            <button
+              onClick={() => setShowSqlModal(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              title="View Database Schema and Storage SQL"
+            >
+              <Code2 className="w-3.5 h-3.5 text-[#5FA20D]" />
+              <span>Database SQL</span>
+            </button>
+          )}
 
           <button
             onClick={handleOpenUploadModal}
@@ -668,15 +670,15 @@ export const DesignsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Database/Storage Notice if table or bucket doesn't exist */}
-      {!tableExists && !isDemoMode && (
+      {/* Database/Storage Notice if table or bucket doesn't exist (owners and admins only) */}
+      {!tableExists && !isDemoMode && isOwnerOrAdmin && (
         <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900">
           <div className="flex items-start gap-2.5">
             <Database className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-amber-950">Supabase "designs" Table & Storage Bucket Needed</p>
+              <p className="font-semibold text-amber-950">Designs Database Table & Storage Setup Needed</p>
               <p className="text-amber-800 text-[11px] mt-0.5">
-                Run the quick SQL script in your Supabase SQL Editor to provision the table, private storage bucket, and RLS security policies.
+                Run the quick SQL script in your database to provision the table, storage bucket, and policies.
               </p>
             </div>
           </div>
